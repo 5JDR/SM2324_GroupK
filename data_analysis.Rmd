@@ -25,7 +25,6 @@ Check for missing values (SPOILER: NO MISSING VALUES)
 
 ```{r missing_values}
 sum(is.na(train_data))
-
 ```
 
 Cast of variables' type
@@ -38,7 +37,7 @@ sum(train_data$zscore - as.integer(train_data$zscore))
 train_data$zscore <- as.integer(train_data$zscore)
 
 #factorize gender
-train_data$gender <- as.factor(train_data$gender)
+train_data$c_gender <- as.factor(train_data$c_gender)
 
 #cast c_breastf as integer
 train_data$c_breastf <- as.integer(train_data$c_breastf)
@@ -59,7 +58,6 @@ train_data$region <- as.factor(train_data$region)
 
 #factorize district
 train_data$district <- as.factor(train_data$district)
-
 ```
 
 Now let's dive into each variable.
@@ -70,18 +68,87 @@ First we plot the distribution of the zscore variable.
 hist(train_data$zscore, breaks = 20, col = "lightblue", main = "Histogram of zscore", xlab = "zscore", freq = FALSE)
 #add the normal curve with mean and sd of zscore
 curve(dnorm(x, mean = mean(train_data$zscore), sd = sd(train_data$zscore)), col = "red", lwd = 2, add = TRUE)
-#add the vertical dotted line at the mean
+#add the vertical dotted line at the mean, add it to the legend
 abline(v = mean(train_data$zscore), col = "blue", lwd = 2, lty = 2)
+legend("topright", c("Normal curve", "Mean"), col = c("red", "blue"), lwd = c(2, 2), lty = c(1, 2), cex = 1.5)
 # Write the median and mean values to check if they're similar 
-text(350, 0.003, paste("Median:", round(median(train_data$zscore), 2), "\nMean:", round(mean(train_data$zscore), 2)), cex = 1.5)
-
+text(350, 0.001, paste("Median:", round(median(train_data$zscore), 2), "\nMean:", round(mean(train_data$zscore), 2)), cex = 1.5)
 ```
 
 Notice how this variable seems to follow a normal distribution. Also the mean (and then the median) is significally lower than 0: this is a measure of how the american population is healthier.
 
 Now we study the gender variable
+
 ```{r gender}
-#plot the barplot of c_gender
+#barplot of c_gender
+table(train_data$c_gender)
+```
+
+The c_gender variable is quite balanced, even tho there are a bit more females.
+
+```{r zscore_gender}
+#plot the previous distribution (zscore) for c_gender=0 and c_gender=1
+
+hist(train_data$zscore[train_data$c_gender==0], breaks = 20, col = rgb(0,0,1,1/4), main = "Histogram of zscore", xlab = "zscore", freq = FALSE)
+hist(train_data$zscore[train_data$c_gender==1], breaks = 20, col = rgb(1,0,0,1/4), main = "Histogram of zscore", xlab = "zscore", freq = FALSE, add = TRUE)
+
+# add the mean line for both distributions
+abline(v = mean(train_data$zscore[train_data$c_gender==0]), col = "blue", lwd = 2, lty = 2)
+abline(v = mean(train_data$zscore[train_data$c_gender==1]), col = "red", lwd = 2, lty = 2)
 
 ```
 
+This has to be corrected on shiny, for now it's sufficient to see that the two distributions are quite similar.
+
+```{r c_breastf}
+#plot the distribution of the c_breastf variable
+hist(train_data$c_breastf, breaks = 20, col = "lightblue", main = "Histogram of c_breastf", xlab = "c_breastf", freq = T)
+
+```
+
+There are a lot of children that have been breastfeed for 0 months.
+
+```{r zscore_breastf}
+library(ggplot2)
+library(ggExtra)
+#marginal plot of zscore and c_breastf
+
+p <- ggplot(train_data, aes(x=c_breastf, y=zscore)) +
+  geom_point() +
+  theme(legend.position="none") +
+  # add a regression line
+  geom_smooth(method=lm, se=FALSE)
+
+p1 <- ggMarginal(p, type="histogram")
+
+p1
+```
+
+```{r cor_zscore_breastf}
+cor.test(train_data$zscore, train_data$c_breastf)
+```
+
+There doesn't seem to be a correlation at eye, by looking at the plot, but if we perform a test we can see that there is a slight negative correlation between the variables, meaning that the more months a child has been breastfed, the lower the zscore (quite odd)
+
+```{r zscore_breastf_2}
+library(dplyr)
+#plot the marginal distribution of the zscore variable for c_breastf > 2
+
+p <- train_data %>% 
+  filter(c_breastf > 2) %>% 
+  ggplot(., aes(x=c_breastf, y=zscore)) +
+  geom_point() +
+  theme(legend.position="none") +
+  # add a regression line
+  geom_smooth(method=lm, se=FALSE)
+
+p2 <- ggMarginal(p, type="histogram")
+
+p2
+```
+
+```{r cor_zscore_breastf_2}
+cor.test(train_data$zscore[train_data$c_breastf > 2], train_data$c_breastf[train_data$c_breastf > 2])
+```
+
+By removing the observations relatively to children that have been breastfed for less than 2 months, we can see that the correlation is very close to 0.
