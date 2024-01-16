@@ -1,0 +1,87 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Import the data and split in train-set and test-set
+
+```{r import_data}
+library(haven)
+data <- read_dta("data/zambia_height92.dta")
+head(data)
+
+
+#split data in train and test set
+set.seed(123)
+train <- sample(1:nrow(data), 0.85*nrow(data))
+
+test <- setdiff(1:nrow(data), train)
+
+train_data <- data[train,]
+test_data <- data[test,]
+```
+
+Check for missing values (SPOILER: NO MISSING VALUES)
+
+```{r missing_values}
+sum(is.na(train_data))
+
+```
+
+Cast of variables' type
+
+```{r cast}
+#check if all zscore values are integers
+sum(train_data$zscore - as.integer(train_data$zscore))
+
+#cast of zscore to integer
+train_data$zscore <- as.integer(train_data$zscore)
+
+#factorize gender
+train_data$gender <- as.factor(train_data$gender)
+
+#cast c_breastf as integer
+train_data$c_breastf <- as.integer(train_data$c_breastf)
+
+#cast c_age as integer
+train_data$c_age <- as.integer(train_data$c_age)
+
+#NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
+
+#factorize m_education
+train_data$m_education <- as.factor(train_data$m_education)
+
+#factorize m_work
+train_data$m_work <- as.factor(train_data$m_work)
+
+#factorize region
+train_data$region <- as.factor(train_data$region)
+
+#factorize district
+train_data$district <- as.factor(train_data$district)
+
+```
+
+Now let's dive into each variable.
+
+First we plot the distribution of the zscore variable.
+
+```{r zscore}
+hist(train_data$zscore, breaks = 20, col = "lightblue", main = "Histogram of zscore", xlab = "zscore", freq = FALSE)
+#add the normal curve with mean and sd of zscore
+curve(dnorm(x, mean = mean(train_data$zscore), sd = sd(train_data$zscore)), col = "red", lwd = 2, add = TRUE)
+#add the vertical dotted line at the mean
+abline(v = mean(train_data$zscore), col = "blue", lwd = 2, lty = 2)
+# Write the median and mean values to check if they're similar 
+text(350, 0.003, paste("Median:", round(median(train_data$zscore), 2), "\nMean:", round(mean(train_data$zscore), 2)), cex = 1.5)
+
+```
+
+Notice how this variable seems to follow a normal distribution. Also the mean (and then the median) is significally lower than 0: this is a measure of how the american population is healthier.
+
+Now we study the gender variable
+```{r gender}
+#plot the barplot of c_gender
+
+```
+
