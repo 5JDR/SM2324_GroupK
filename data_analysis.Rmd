@@ -77,6 +77,19 @@ text(350, 0.001, paste("Median:", round(median(train_data$zscore), 2), "\nMean:"
 
 Notice how this variable seems to follow a normal distribution. Also the mean (and then the median) is significally lower than 0: this is a measure of how the american population is healthier.
 
+Let's plot the correlation matrix for continuous variables
+
+```{r cor_matrix}
+library(corrplot)
+#correlation matrix for continuous variables
+cor_matrix <- cor(train_data[,c("zscore", "c_breastf", "c_age", "m_agebirth", "m_height", "m_bmi")])
+corrplot(cor_matrix, method = "circle", type = "upper", tl.col = "black", tl.srt = 45)
+```
+We would expect that the older the child gets, the higher the zscore. This seems not true based on the correlation matrix. We will check this later. This holds also for the amount of breasfeeding months.
+
+
+
+
 Now we study the gender variable
 
 ```{r gender}
@@ -149,6 +162,133 @@ p2
 
 ```{r cor_zscore_breastf_2}
 cor.test(train_data$zscore[train_data$c_breastf > 2], train_data$c_breastf[train_data$c_breastf > 2])
+
 ```
 
 By removing the observations relatively to children that have been breastfed for less than 2 months, we can see that the correlation is very close to 0.
+
+```{r c_age}
+#plot the distribution of c_age variable
+hist(train_data$c_age, breaks = 20, col = "lightblue", main = "Histogram of c_age", xlab = "c_age", freq = F)
+#add a density curve
+lines(density(train_data$c_age), col = "red", lwd = 2)
+
+```
+
+```{r zscore_age}
+#marginal plot of zscore and c_age
+p<- ggplot(train_data, aes(x=c_age, y=zscore)) +
+  geom_point() +
+  theme(legend.position="none") +
+  # add a regression line
+  geom_smooth(method=lm, se=FALSE)
+
+p3 <- ggMarginal(p, type="histogram")
+p3
+
+```
+We expect that the older the child, the higher the zscore, but the plot doesn't seem to show this. Let's perform a test to see if there is a correlation between the two variables.
+```{r cor_zscore_age}
+cor.test(train_data$zscore, train_data$c_age)
+
+```
+
+
+
+
+```{r m_agebirth}
+#plot the distribution of m_agebirth variable
+hist(train_data$m_agebirth, breaks = 20, col = "lightblue", main = "Histogram of m_agebirth", xlab = "m_agebirth", freq = F)
+#add a density curve
+lines(density(train_data$m_agebirth), col = "red", lwd = 2)
+#add the mean line and the median line
+abline(v = mean(train_data$m_agebirth), col = "blue", lwd = 2, lty = 2)
+abline(v = median(train_data$m_agebirth), col = "green", lwd = 2, lty = 4)
+
+```
+```{r m_height}
+#plot the distribution of m_height variable
+hist(train_data$m_height, breaks = 20, col = "lightblue", main = "Histogram of m_height", xlab = "m_height", freq = F)
+#add a normal distribution curve with the same mean and sd as the variable
+curve(dnorm(x, mean = mean(train_data$m_height), sd = sd(train_data$m_height)), col = "red", lwd = 2, add = TRUE)
+#add the mean line
+abline(v = mean(train_data$m_height), col = "blue", lwd = 2, lty = 2)
+
+```
+
+```{r zscore_vs_m_height}
+#marginal plot of zscore and m_height
+p<- ggplot(train_data, aes(x=m_height, y=zscore)) +
+  geom_point() +
+  theme(legend.position="none") +
+  # add a regression line
+  geom_smooth(method=lm, se=FALSE)
+
+p4 <- ggMarginal(p, type="histogram")
+p4
+
+```
+```{r m_bmi}
+#plot the distribution of m_bmi variable
+hist(train_data$m_bmi, breaks = 20, col = "lightblue", main = "Histogram of m_bmi", xlab = "m_bmi", freq = F)
+#add a the density line
+lines(density(train_data$m_bmi), col = "red", lwd = 2)
+#add the mean line and median line
+abline(v = mean(train_data$m_bmi), col = "blue", lwd = 2, lty = 2)
+abline(v = median(train_data$m_bmi), col = "green", lwd = 2, lty = 4)
+
+```
+
+```{r zscore_vs_m_bmi}
+#marginal plot of zscore and m_bmi
+p<- ggplot(train_data, aes(x=m_bmi, y=zscore)) +
+  geom_point() +
+  theme(legend.position="none") +
+  # add a regression line
+  geom_smooth(method=lm, se=FALSE)
+
+p5 <- ggMarginal(p, type="histogram")
+p5
+
+```
+
+Now we plot two histograms of the zscore, one for m_work = 0, and one for m_work = 1, to see if there is a difference in the distribution of the zscore between the two groups.
+```{r m_work_table}
+#table of the number of observations for each value of m_work
+table(train_data$m_work)
+
+```
+
+
+
+
+```{r m_work}
+#plot the previous distribution (zscore) for m_work=0 and m_workr=1
+hist(train_data$zscore[train_data$m_work==0], breaks = 20, col = rgb(0,0,1,1/4), main = "Histogram of zscore", xlab = "zscore", freq = FALSE)
+hist(train_data$zscore[train_data$m_work==1], breaks = 20, col = rgb(1,0,0,1/4), main = "Histogram of zscore", xlab = "zscore", freq = FALSE, add = TRUE)
+
+```
+
+
+For each value of the variable m_education, we plot the distribution of the zscore.
+
+```{r m_education_table}
+par(mfrow=c(2,2))
+#hist of zscore for each value of m_education
+for (i in 1:4){
+  hist(train_data$zscore[train_data$m_education==i], breaks = 20, col = rgb(0,0,1,1/4), , xlab = "zscore", freq = FALSE)
+}
+
+```
+
+NOTE: THIS PLOT WILL BE VERY DIFFERENT WITH R-SHINY, BECAUSE THE PLOT IS INTERACTIVE
+
+FOR REGION AND DISTRICTS CHECK CHOROPLETH MAPS FOR SHINY
+
+
+
+
+
+
+
+
