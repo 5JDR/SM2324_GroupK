@@ -108,6 +108,31 @@ server <- function(input, output) {
   train_data <- data[train,]
   test_data <- data[test,]
   
+  #cast of zscore to integer
+  train_data$zscore <- as.integer(train_data$zscore)
+  
+  #factorize gender
+  train_data$c_gender <- as.factor(train_data$c_gender)
+  
+  #cast c_breastf as integer
+  train_data$c_breastf <- as.integer(train_data$c_breastf)
+  
+  #cast c_age as integer
+  train_data$c_age <- as.integer(train_data$c_age)
+  
+  #NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
+  
+  #factorize m_education
+  train_data$m_education <- as.factor(train_data$m_education)
+  
+  #factorize m_work
+  train_data$m_work <- as.factor(train_data$m_work)
+  
+  #factorize region
+  train_data$region <- as.factor(train_data$region)
+  
+  #factorize district
+  train_data$district <- as.factor(train_data$district)
   
   # Data Overview
   output$dataOverview <- DT::renderDataTable({
