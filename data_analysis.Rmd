@@ -58,6 +58,14 @@ train_data$region <- as.factor(train_data$region)
 
 #factorize district
 train_data$district <- as.factor(train_data$district)
+
+p <- ggplot(train_data, aes(x = zscore, y = after_stat(count / sum(count)))) +
+  geom_histogram(data = subset(train_data, c_gender == 0), aes(fill = "Female"), colour = 'black') +
+  geom_histogram(data = subset(train_data, c_gender == 1), aes(fill = "Male"), colour = 'black', alpha = 0.5) +
+  scale_fill_manual(name = "Gender", values=c("pink1", "steelblue1")) +
+  labs(title = "Histograms of zscore by gender", x = "zscore", y = NULL)
+
+ggplotly(p)
 ```
 
 Now let's dive into each variable.

@@ -78,7 +78,10 @@ ui <- dashboardPage(
                    in child nutrition.</p>")),
       tabItem(tabName = "correlationMatrix", plotlyOutput("correlationMatrix")),
       tabItem(tabName = "cGenderBarPlot", plotlyOutput("cGenderBarPlot")),
-      tabItem(tabName = "zscoreGenderHist", plotlyOutput("zscoreGenderHist")),
+      tabItem(tabName = "zscoreGenderHist", plotlyOutput("zscoreGenderHist", width = "50%"),
+              HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
+                   Distribution of Children in Zambia, divided by gender:</b> There isn't a substantial difference between the two sub-populations,
+                   the zscore distribution seems quite balanced for males and females.</p>")),
       tabItem(tabName = "cBreastfHist", plotlyOutput("cBreastfHist")),
       tabItem(tabName = "zscoreBreastfMarginalPlot", plotlyOutput("zscoreBreastfMarginalPlot")),
       tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
@@ -186,7 +189,13 @@ server <- function(input, output) {
   
   # Histograms of zscore by Gender
   output$zscoreGenderHist <- renderPlotly({
-    # Implement histograms of zscore by gender
+    # Implement histograms of zscore by c_gender = 0 and c_gender = 1
+    p <- ggplot(train_data, aes(x = zscore, y = after_stat(count / sum(count)))) +
+      geom_histogram(data = subset(train_data, c_gender == 0), aes(fill = "Female"), colour = 'black') +
+      geom_histogram(data = subset(train_data, c_gender == 1), aes(fill = "Male"), colour = 'black', alpha = 0.5) +
+      scale_fill_manual(name = "Gender", values=c("pink1", "steelblue1")) +
+      labs(title = "Histograms of zscore by gender", x = "zscore", y = NULL)
+    ggplotly(p)
   })
   
   # Histogram of c_breastf
