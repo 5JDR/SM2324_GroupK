@@ -20,10 +20,10 @@ ui <- dashboardPage(
                menuSubItem("Data Overview", tabName = "dataOverview"),
                menuSubItem("Histogram of zscore", tabName = "zscoreHist"),
                menuSubItem("Correlation Matrix", tabName = "correlationMatrix"),
-               menuSubItem("Bar Plot of c_gender", tabName = "cGenderBarPlot"),
-               menuSubItem("Histograms of zscore by Gender", tabName = "zscoreGenderHist"),
-               menuSubItem("Histogram of c_breastf", tabName = "cBreastfHist"),
-               menuSubItem("Marginal Plot", tabName = "zscoreBreastfMarginalPlot"),
+               menuSubItem("Gender Analysis", tabName = "genderAnalysis"),
+               
+               #menuSubItem("Breast-feedings", tabName = "Breast-feedings"),
+               menuSubItem("Breast-feedings", tabName = "zscoreBreastfMarginalPlot"),
                menuSubItem("Correlation Test", tabName = "corTestZscoreBreastf"),
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
@@ -77,13 +77,28 @@ ui <- dashboardPage(
                    This significant deviation paints a picture of the disparities
                    in child nutrition.</p>")),
       tabItem(tabName = "correlationMatrix", plotlyOutput("correlationMatrix",height = "800px")),
-      tabItem(tabName = "cGenderBarPlot", plotlyOutput("cGenderBarPlot")),
-      tabItem(tabName = "zscoreGenderHist", plotlyOutput("zscoreGenderHist", width = "50%"),
+      tabItem(tabName = "genderAnalysis",
+              radioButtons("genderSelect", "Select Gender:",
+                           choices = list("Both Genders" = "both",
+                                          "Female" = "0",
+                                          "Male" = "1"),
+                           selected = "both"),
+              plotlyOutput("genderAnalysis", width = "100%", height = "800px"),
               HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
-                   Distribution of Children in Zambia, divided by gender:</b> There isn't a substantial difference between the two sub-populations,
+                   Distribution of Children in Zambia, divided by gender:</b>
+                   There isn't a substantial difference between the two sub-populations,
                    the zscore distribution seems quite balanced for males and females.</p>")),
-      tabItem(tabName = "cBreastfHist", plotlyOutput("cBreastfHist")),
-      tabItem(tabName = "zscoreBreastfMarginalPlot", plotlyOutput("zscoreBreastfMarginalPlot")),
+      #tabItem(tabName = "Breast-feedings", plotlyOutput("cBreastfHist",height = "800px")),
+      tabItem(tabName = "zscoreBreastfMarginalPlot",
+              
+              fluidRow(
+                column(8, plotlyOutput("hist_c_breastf"))
+              ),
+              fluidRow(
+                column(8, plotlyOutput("scatterPlot")),
+                column(4, plotlyOutput("hist_zscore"))
+              ) 
+              ),
       tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
       tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
@@ -181,12 +196,25 @@ server <- function(input, output) {
   })
   
   # Bar Plot of c_gender
-  output$cGenderBarPlot <- renderPlotly({
-    p <- ggplot(train_data, aes(x = c_gender)) +
-      geom_bar(fill = "steelblue") +
-      labs(title = "Bar Plot of Gender", x = "Gender", y = "Count")
-    ggplotly(p)
+  output$genderAnalysis <- renderPlotly({
+    # Filter data based on selected gender
+    if (input$genderSelect == "0") {  # Female
+      data_to_plot <- subset(train_data, c_gender == 0)
+    } else if (input$genderSelect == "1") {  # Male
+      data_to_plot <- subset(train_data, c_gender == 1)
+    } else {  # Both genders
+      data_to_plot <- train_data
+    }
+    
+    # Plot histogram
+    plot_ly(data_to_plot, x = ~zscore, type = 'histogram',
+            marker = list(opacity = 0.6)) %>%
+      layout(title = 'Histogram of zscore by Gender',
+             xaxis = list(title = 'zscore'),
+             yaxis = list(title = 'Count'))
   })
+    
+
   
   # Histograms of zscore by Gender
   output$zscoreGenderHist <- renderPlotly({
@@ -199,15 +227,37 @@ server <- function(input, output) {
     ggplotly(p)
   })
   
-  # Histogram of c_breastf
-  output$cBreastfHist <- renderPlotly({
-    # Implement histogram of c_breastf
-  })
+
   
   # Marginal Plot of zscore and c_breastf
-  output$zscoreBreastfMarginalPlot <- renderPlotly({
-    # Implement marginal plot of zscore and c_breastf
+  output$scatterPlot <- renderPlotly({
+    # Create the scatter plot
+    # Create the scatter plot
+    scatterPlot <- plot_ly(train_data, x = ~c_breastf, y = ~zscore, type = 'scatter', mode = 'markers') %>%
+      layout(title = '',
+             xaxis = list(title = 'breast-feedings months'),
+             yaxis = list(title = 'zscore'))
+    
+    # Print the plot
+    scatterPlot
   })
+  # Histogram for c_breastf
+  hist_c_breastf <- plot_ly(train_data, x = ~c_breastf, type = 'histogram', 
+                            marker = list(color = 'rgba(102,194,165,0.5)')) %>%
+    layout(showlegend = FALSE, 
+           xaxis = list(title = ""),
+           yaxis = list(title = "Count"))
+  
+  # Histogram for zscore
+  hist_zscore <- plot_ly(train_data, y = ~zscore, type = 'histogram', 
+                         marker = list(color = 'rgba(252,141,98,0.5)')) %>%
+    layout(showlegend = FALSE, 
+           xaxis = list(title = "Count"),
+           yaxis = list(title = ""))
+  
+  output$hist_c_breastf <- renderPlotly({ hist_c_breastf })
+  output$hist_zscore <- renderPlotly({ hist_zscore })
+  
   
   # Correlation Test Between zscore and c_breastf
   output$corTestZscoreBreastf <- renderPrint({
