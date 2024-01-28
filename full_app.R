@@ -96,7 +96,7 @@ ui <- dashboardPage(
               ),
               fluidRow(
                 column(8, plotlyOutput("scatterPlot")),
-                column(4, plotlyOutput("hist_zscore"))
+                column(4, plotlyOutput("hist_zscore",width = '200px'))
               ) 
               ),
       tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
