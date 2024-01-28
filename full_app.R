@@ -64,7 +64,7 @@ ui <- dashboardPage(
              <p>This dataset serves as a tool for understanding the scale
                     and specifics of child malnutrition in Zambia, providing 
                     valuable insights.</p>")),
-      tabItem(tabName = "zscoreHist", plotlyOutput("zscoreHist"),
+      tabItem(tabName = "zscoreHist", plotlyOutput("zscoreHist",width = "100%", height = "800px"),
               HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
                    Distribution of Children in Zambia:</b> <span style='color:
                    #2E86C1;'>This histogram vividly illustrates the Z-score
@@ -76,7 +76,7 @@ ui <- dashboardPage(
                    compared to the reference population of US-American children. 
                    This significant deviation paints a picture of the disparities
                    in child nutrition.</p>")),
-      tabItem(tabName = "correlationMatrix", plotlyOutput("correlationMatrix")),
+      tabItem(tabName = "correlationMatrix", plotlyOutput("correlationMatrix",height = "800px")),
       tabItem(tabName = "cGenderBarPlot", plotlyOutput("cGenderBarPlot")),
       tabItem(tabName = "zscoreGenderHist", plotlyOutput("zscoreGenderHist", width = "50%"),
               HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
@@ -85,7 +85,7 @@ ui <- dashboardPage(
       tabItem(tabName = "cBreastfHist", plotlyOutput("cBreastfHist")),
       tabItem(tabName = "zscoreBreastfMarginalPlot", plotlyOutput("zscoreBreastfMarginalPlot")),
       tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
-      tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis")),
+      tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
       # Add tabItems for model building
       tabItem(tabName = "subItem1", verbatimTextOutput("subItem1")),
@@ -144,15 +144,16 @@ server <- function(input, output) {
   
   # Interactive Histogram of zscore
   output$zscoreHist <- renderPlotly({
+    
+    mean <- mean(train_data$zscore)
+    sd <- sd(train_data$zscore)
+    
     p <- ggplot(train_data, aes(x = zscore)) +
       stat_function(fun = dnorm, args = list(mean = mean, sd = sd ),geom = "polygon", color = "red",fill = "red",alpha = 0.3, size = 1, text = paste("Normal Distribution"))+
       #histogram of density instead of count
       geom_histogram(aes(y = ..density..),binwidth = 30, fill = "blue", alpha = 0.7) +
       labs(title = "Histogram of zscore", x = "zscore", y = "Density")
-    #add normal curve
-    mean <- mean(train_data$zscore)
-    sd <- sd(train_data$zscore)
-    #add a vertical line for the mean 
+    
     p <- p + geom_vline(aes(xintercept = mean), color = "green", linetype = "dashed",alpha = 0.7, size = 1)
     
     ggplotly(p)
