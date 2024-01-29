@@ -32,12 +32,12 @@ ui <- dashboardPage(
                menuSubItem("Model Performance", tabName = "modelPerformance"),
                menuSubItem("Model Comparison", tabName = "modelComparison")
       )
-  )),
+    )),
   dashboardBody(
     tabItems(
       # Data Analysis Tabs
       tabItem(tabName = "dataOverview", 
-               HTML("<p>This dataset provides a comprehensive overview of 
+              HTML("<p>This dataset provides a comprehensive overview of 
                malnutrition among children aged 0-5 in Zambia, based on a survey
                conducted in 1992. It focuses on the nutritional condition measured 
                by the Z-score, which compares a child's anthropometric status to 
@@ -85,7 +85,6 @@ ui <- dashboardPage(
                            selected = "both"),
               plotlyOutput("genderAnalysis", width = "100%", height = "800px"),
               HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
-<<<<<<< Updated upstream
                    Distribution of Children in Zambia, divided by gender:</b>
                    There isn't a substantial difference between the two sub-populations,
                    the zscore distribution seems quite balanced for males and females.</p>")),
@@ -99,17 +98,7 @@ ui <- dashboardPage(
                 column(8, plotlyOutput("scatterPlot")),
                 column(4, plotlyOutput("hist_zscore",width = '200px'))
               ) 
-              ),
-=======
-                   Distribution of Children in Zambia, divided by gender:</b> The two histograms 
-                   are mostly overlapping, there isn't a clear difference between the two sub-populations,
-                   the zscore distribution seems quite balanced for males and females.</p>")),
-      tabItem(tabName = "cBreastfHist", plotlyOutput("cBreastfHist", width = "50%"),
-              HTML("<p style='font-size:16px; color: #333333;'><b>Duration of Breastfeeding:</b> 
-                   The histogram shows that there are a lot of children that have not been breastfed properly (0-1 months).
-                   This also represents a strong deviation from the rest of the distribution.</p>")),
-      tabItem(tabName = "zscoreBreastfMarginalPlot", plotlyOutput("zscoreBreastfMarginalPlot")),
->>>>>>> Stashed changes
+      ),
       tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
       tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
@@ -224,8 +213,8 @@ server <- function(input, output) {
              xaxis = list(title = 'zscore'),
              yaxis = list(title = 'Count'))
   })
-    
-
+  
+  
   
   # Histograms of zscore by Gender
   output$zscoreGenderHist <- renderPlotly({
@@ -234,22 +223,11 @@ server <- function(input, output) {
       geom_histogram(data = subset(train_data, c_gender == 0), aes(fill = "Female"), colour = 'black') +
       geom_histogram(data = subset(train_data, c_gender == 1), aes(fill = "Male"), colour = 'black', alpha = 0.5) +
       scale_fill_manual(name = "Gender", values=c("pink1", "steelblue1")) +
-      labs(title = "Histograms of zscore by child gender", x = "zscore", y = NULL)
+      labs(title = "Histograms of zscore by gender", x = "zscore", y = NULL)
     ggplotly(p)
   })
   
-<<<<<<< Updated upstream
-
-=======
-  # Histogram of c_breastf
-  output$cBreastfHist <- renderPlotly({
-    # Implement histogram of c_breastf
-    p <- ggplot(train_data, aes(x = c_breastf, y = after_stat(count / sum(count)))) +
-      geom_bar(fill = "steelblue") +
-      labs(title = "Histogram of breastfeeding time", x = "Breastfeeding time (months)", y = "")
-    ggplotly(p)
-  })
->>>>>>> Stashed changes
+  
   
   # Marginal Plot of zscore and c_breastf
   output$scatterPlot <- renderPlotly({
@@ -293,51 +271,51 @@ server <- function(input, output) {
   })
   
   
-    # Implement regional analysis
-    # Prepare map data
-    zambia_map <- st_read("data/columbia_fewsn_1996_zambiaadmn2.shp")
-    zambia_map$region <- c("Northern", "Copperbelt", "Luapula", "Eastern", "Central", "North Western", "Western", "Southern", "Lusaka")
-    zambia_map$zscore <- data %>% 
-      
-      mutate(region = case_when(
-        region == 6 ~ "Northern",
-        region == 2 ~ "Copperbelt",
-        region == 4 ~ "Luapula",
-        region == 3 ~ "Eastern",
-        region == 1 ~ "Central",
-        region == 7 ~ "North Western",
-        region == 9 ~ "Western",
-        region == 8 ~ "Southern",
-        region == 5 ~ "Lusaka"
-      )) %>% 
-      group_by(region) %>% 
-      summarise(zscore = round(mean(zscore),2)) %>% 
-      pull(zscore)
+  # Implement regional analysis
+  # Prepare map data
+  zambia_map <- st_read("data/columbia_fewsn_1996_zambiaadmn2.shp")
+  zambia_map$region <- c("Northern", "Copperbelt", "Luapula", "Eastern", "Central", "North Western", "Western", "Southern", "Lusaka")
+  zambia_map$zscore <- data %>% 
     
-    # Add color gradient based on zscore, with a scale of grey
-    pal<-colorNumeric(palette = "viridis", domain = zambia_map$zscore, alpha = 0.7)
-    output$regionalAnalysis <- renderLeaflet({
-      # Create basic map with region boundaries
-      leaflet(zambia_map) %>%
-        addPolygons(
-          color = ~pal(zscore),
-          fillOpacity = 1,
-          #popup of region name and zscore
-          popup = ~paste0("Region: ", zambia_map$region, "<br>",
-                          "Z-score: ", zambia_map$zscore)
-        ) %>%
-        # Add legend
-        addLegend(
-          position = "bottomright", # Can be "topright", "bottomright", "bottomleft", or "topleft".
-          pal = colorNumeric(palette = "viridis", domain = zambia_map$zscore),
-          values = zambia_map$zscore,
-          title = "Z-SCORE",
-          opacity = 1
-        )
-        
-        
-    })
-      
+    mutate(region = case_when(
+      region == 6 ~ "Northern",
+      region == 2 ~ "Copperbelt",
+      region == 4 ~ "Luapula",
+      region == 3 ~ "Eastern",
+      region == 1 ~ "Central",
+      region == 7 ~ "North Western",
+      region == 9 ~ "Western",
+      region == 8 ~ "Southern",
+      region == 5 ~ "Lusaka"
+    )) %>% 
+    group_by(region) %>% 
+    summarise(zscore = round(mean(zscore),2)) %>% 
+    pull(zscore)
+  
+  # Add color gradient based on zscore, with a scale of grey
+  pal<-colorNumeric(palette = "viridis", domain = zambia_map$zscore, alpha = 0.7)
+  output$regionalAnalysis <- renderLeaflet({
+    # Create basic map with region boundaries
+    leaflet(zambia_map) %>%
+      addPolygons(
+        color = ~pal(zscore),
+        fillOpacity = 1,
+        #popup of region name and zscore
+        popup = ~paste0("Region: ", zambia_map$region, "<br>",
+                        "Z-score: ", zambia_map$zscore)
+      ) %>%
+      # Add legend
+      addLegend(
+        position = "bottomright", # Can be "topright", "bottomright", "bottomleft", or "topleft".
+        pal = colorNumeric(palette = "viridis", domain = zambia_map$zscore),
+        values = zambia_map$zscore,
+        title = "Z-SCORE",
+        opacity = 1
+      )
+    
+    
+  })
+  
   
   # Placeholder for Predictive Model Building
   # Implement server logic for model building if needed
@@ -349,4 +327,3 @@ server <- function(input, output) {
 
 # Run the application
 shinyApp(ui = ui, server = server)
-
