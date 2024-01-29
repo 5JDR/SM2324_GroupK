@@ -85,6 +85,7 @@ ui <- dashboardPage(
                            selected = "both"),
               plotlyOutput("genderAnalysis", width = "100%", height = "800px"),
               HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
+<<<<<<< Updated upstream
                    Distribution of Children in Zambia, divided by gender:</b>
                    There isn't a substantial difference between the two sub-populations,
                    the zscore distribution seems quite balanced for males and females.</p>")),
@@ -99,6 +100,16 @@ ui <- dashboardPage(
                 column(4, plotlyOutput("hist_zscore",width = '200px'))
               ) 
               ),
+=======
+                   Distribution of Children in Zambia, divided by gender:</b> The two histograms 
+                   are mostly overlapping, there isn't a clear difference between the two sub-populations,
+                   the zscore distribution seems quite balanced for males and females.</p>")),
+      tabItem(tabName = "cBreastfHist", plotlyOutput("cBreastfHist", width = "50%"),
+              HTML("<p style='font-size:16px; color: #333333;'><b>Duration of Breastfeeding:</b> 
+                   The histogram shows that there are a lot of children that have not been breastfed properly (0-1 months).
+                   This also represents a strong deviation from the rest of the distribution.</p>")),
+      tabItem(tabName = "zscoreBreastfMarginalPlot", plotlyOutput("zscoreBreastfMarginalPlot")),
+>>>>>>> Stashed changes
       tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
       tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
@@ -223,11 +234,22 @@ server <- function(input, output) {
       geom_histogram(data = subset(train_data, c_gender == 0), aes(fill = "Female"), colour = 'black') +
       geom_histogram(data = subset(train_data, c_gender == 1), aes(fill = "Male"), colour = 'black', alpha = 0.5) +
       scale_fill_manual(name = "Gender", values=c("pink1", "steelblue1")) +
-      labs(title = "Histograms of zscore by gender", x = "zscore", y = NULL)
+      labs(title = "Histograms of zscore by child gender", x = "zscore", y = NULL)
     ggplotly(p)
   })
   
+<<<<<<< Updated upstream
 
+=======
+  # Histogram of c_breastf
+  output$cBreastfHist <- renderPlotly({
+    # Implement histogram of c_breastf
+    p <- ggplot(train_data, aes(x = c_breastf, y = after_stat(count / sum(count)))) +
+      geom_bar(fill = "steelblue") +
+      labs(title = "Histogram of breastfeeding time", x = "Breastfeeding time (months)", y = "")
+    ggplotly(p)
+  })
+>>>>>>> Stashed changes
   
   # Marginal Plot of zscore and c_breastf
   output$scatterPlot <- renderPlotly({
