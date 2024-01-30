@@ -1,0 +1,336 @@
+---
+title: "Zambia Models"
+author: "Annalisa Paladino"
+output: html_document
+---
+
+Import the data and split in train-set and test-set
+
+```{r import_data}
+library(haven)
+setwd("/Users/annalisa/Downloads")
+data <- read_dta("zambia_height92.dta")
+head(data)
+
+#split data in train and test set
+set.seed(123)
+train <- sample(1:nrow(data), 0.85*nrow(data))
+
+test <- setdiff(1:nrow(data), train)
+
+train_data <- data[train,]
+test_data <- data[test,]
+```
+
+```{r cast}
+#check if all zscore values are integers
+sum(train_data$zscore - as.integer(train_data$zscore))
+
+#cast of zscore to integer
+train_data$zscore <- as.integer(train_data$zscore)
+
+#factorize gender
+train_data$c_gender <- as.factor(train_data$c_gender)
+
+#cast c_breastf as integer
+train_data$c_breastf <- as.integer(train_data$c_breastf)
+
+#cast c_age as integer
+train_data$c_age <- as.integer(train_data$c_age)
+
+#NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
+
+#factorize m_education
+train_data$m_education <- as.factor(train_data$m_education)
+
+#factorize m_work
+train_data$m_work <- as.factor(train_data$m_work)
+
+#factorize region
+train_data$region <- as.factor(train_data$region)
+
+#factorize district
+train_data$district <- as.factor(train_data$district)
+```
+
+```{r}
+#check if all zscore values are integers
+sum(test_data$zscore - as.integer(test_data$zscore))
+
+#cast of zscore to integer
+test_data$zscore <- as.integer(test_data$zscore)
+
+#factorize gender
+test_data$c_gender <- as.factor(test_data$c_gender)
+
+#cast c_breastf as integer
+test_data$c_breastf <- as.integer(test_data$c_breastf)
+
+#cast c_age as integer
+test_data$c_age <- as.integer(test_data$c_age)
+
+#NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
+
+#factorize m_education
+test_data$m_education <- as.factor(test_data$m_education)
+
+#factorize m_work
+test_data$m_work <- as.factor(test_data$m_work)
+
+#factorize region
+test_data$region <- as.factor(test_data$region)
+
+#factorize district
+test_data$district <- as.factor(test_data$district)
+```
+
+# Linear Regression
+
+```{r}
+# check how many different values there are in the variable district in the train set
+length(unique(train_data$district))
+# check how many different values there are in the variable district in the data
+length(unique(data$district))
+```
+
+```{r}
+```
+
+
+```{r}
+fit0 <- lm(zscore ~ ., data = train_data)
+summary(fit0)
+```
+
+By looking at the p-values I can immediately drop m_work and c_breastf since it's not significant
+
+```{r}
+#vif(fit0)
+```
+
+
+```{r}
+fit1 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data)
+summary(fit1)
+```
+```{r}
+# vif(fit1)
+```
+
+
+With the help of the stepAIC I try to see if there are other variables that I can drop
+
+```{r}
+require(MASS)
+test <- stepAIC(fit0, direction = "both")
+```
+I can also drop region
+
+```{r}
+fit2 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data)
+summary(fit2)
+```
+
+```{r}
+#vif(fit2)
+```
+
+
+```{r}
+fit11 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data)
+summary(fit11)
+```
+
+```{r}
+c(AIC(fit0), AIC(fit1), AIC(fit2), AIC(fit11))
+```
+
+
+```{r}
+# check for multicollinearity
+#require(car)
+#vif(fit11)
+```
+
+```{r}
+#library(corrplot)
+#correlation matrix for continuous variables
+#cor_matrix <- cor(train_data[,c("zscore", "c_breastf", "c_age", "m_agebirth", "m_height", "m_bmi")])
+#corrplot(cor_matrix, method = "circle", type = "upper", tl.col = "black", tl.srt = 45)
+```
+
+```{r}
+```
+
+
+```{r}
+c(AIC(fit0), AIC(fit1), AIC(fit2))
+```
+
+I notice that fit2 gives the same results of fit1, this means that the presence of region in my model is not significant, I choose fit2 since it's the simpler model
+
+```{r}
+plot(fit2)
+```
+
+From the histogram of c_breastf I can notice that there are a lot of children that have been breastfed for 0, 1, 2 or 4 months, I decide to drop these values from the dataset to improve my model since the presence of these values can affect the normality of the residuals
+
+```{r}
+#clf <- lm(c_breastf ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data[train_data$c_breastf != 0 & train_data$c_breastf != 1 & train_data$c_breastf != 2 & train_data$c_breastf != 4, ])
+```
+
+```{r}
+par(mfrow=c(1,2))
+hist(train_data$c_breastf, probability = TRUE, breaks = 15)
+
+train_data2 <- train_data[train_data$c_breastf != 0 & train_data$c_breastf != 1 & train_data$c_breastf != 2,] # & train_data$c_breastf != 1 & train_data$c_breastf != 2 
+
+hist(train_data2$c_breastf, probability = TRUE, breaks = 15)
+```
+
+```{r}
+fit3 <- lm(zscore ~ ., data = train_data2)
+summary(fit3)
+```
+
+```{r}
+c(AIC(fit0), AIC(fit3))
+```
+
+fit3 has a lower AIC than fit0, this means that fit3 is a better model
+
+```{r}
+pred <- predict(fit3, test_data[test_data$c_breastf > 2, ])
+actual <- test_data[test_data$c_breastf > 2, ]$zscore
+library(Metrics)
+rmse(pred, actual)
+```
+
+```{r}
+pred <- predict(fit0, test_data[test_data$c_breastf > 2, ])
+actual <- test_data[test_data$c_breastf > 2, ]$zscore
+rmse(pred, actual)
+```
+
+
+```{r}
+#pred <- predict(fit3, train_data[train_data$c_breastf == 0 | train_data$c_breastf == 1 | train_data$c_breastf == 2 | train_data$c_breastf == 4, ])
+
+#plot(pred, train_data[train_data$c_breastf == 0 | train_data$c_breastf == 1 | train_data$c_breastf == 2 | train_data$c_breastf == 4, ]$zscore)
+```
+
+```{r}
+#lf <- lm(c_breastf ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data[train_data$c_breastf != 0 & train_data$c_breastf != 1 & train_data$c_breastf != 2 ,])
+#summary(lf)
+```
+
+```{r}
+stepAIC(fit3, direction = "both")
+```
+
+```{r}
+fit4 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data2)
+summary(fit4)
+```
+
+```{r}
+plot(fit4)
+```
+
+The plots are still not good, I try to perform the log-transformation of some skewed variables to see if I can improve the model (Somehow the Residuals vs Fitted plot shows a worse behavior than the previous one)
+
+```{r}
+fit5 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data2)
+summary(fit5)
+```
+
+```{r}
+c(AIC(fit4), AIC(fit5))
+```
+
+```{r}
+fit6 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + district, data = train_data2)
+summary(fit6)
+```
+
+```{r}
+fit7 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + region, data = train_data2)
+summary(fit7)
+```
+
+```{r}
+c(AIC(fit4), AIC(fit5), AIC(fit6), AIC(fit7))
+```
+
+fit5 is the best, also fit7 has a good AIC
+
+Now I try to perform the log-transformation of some skewed variables to see if I can improve the model 
+
+```{r}
+train_data2$log_m_agebirth <- log(train_data2$m_agebirth)
+train_data2$log_m_bmi <- log(train_data2$m_bmi)
+```
+
+```{r}
+fit8 <- lm(zscore ~ c_gender + c_age + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
+summary(fit8)
+```
+
+```{r}
+fit9 <- lm(zscore ~ c_gender + c_age*c_breastf + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
+summary(fit9)
+```
+
+```{r}
+c(AIC(fit4), AIC(fit5), AIC(fit6), AIC(fit7),  AIC(fit8), AIC(fit9))
+```
+
+By using the log transformation I don't notice any improvement in the model
+
+```{r}
+plot(fit8)
+```
+
+**Standardizzare tutte le variabili numeriche e testare tutti i modelli**
+
+# GAM
+
+```{r}
+library(PerformanceAnalytics)
+library(mgcv)
+```
+
+```{r}
+gamfit0 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + m_work + region + district, data = train_data2)
+summary(gamfit0)
+```
+
+I can remove the variable m_work because it is not significant and make m_agebirth, m_height and m_bmi as linear variables
+
+```{r}
+gamfit1 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data2)
+summary(gamfit1)
+```
+I try with the log variables
+
+```{r}
+gamfit2 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + region + district, data = train_data2)
+summary(gamfit2)
+```
+
+```{r}
+gamfit3 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + district, data = train_data2)
+summary(gamfit3)
+```
+
+```{r}
+gamfit4 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
+summary(gamfit4)
+```
+
+```{r}
+c(AIC(gamfit1), AIC(gamfit2), AIC(gamfit3), AIC(gamfit4))
+```
+
+gamfit4 has the best AIC, but it has a lower value of deviance explained.
+
