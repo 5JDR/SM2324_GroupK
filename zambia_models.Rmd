@@ -8,8 +8,7 @@ Import the data and split in train-set and test-set
 
 ```{r import_data}
 library(haven)
-setwd("/Users/annalisa/Downloads")
-data <- read_dta("zambia_height92.dta")
+data <- read_dta("data/zambia_height92.dta")
 head(data)
 
 #split data in train and test set
@@ -22,10 +21,7 @@ train_data <- data[train,]
 test_data <- data[test,]
 ```
 
-```{r cast}
-#check if all zscore values are integers
-sum(train_data$zscore - as.integer(train_data$zscore))
-
+```{r cast_train}
 #cast of zscore to integer
 train_data$zscore <- as.integer(train_data$zscore)
 
@@ -53,10 +49,7 @@ train_data$region <- as.factor(train_data$region)
 train_data$district <- as.factor(train_data$district)
 ```
 
-```{r}
-#check if all zscore values are integers
-sum(test_data$zscore - as.integer(test_data$zscore))
-
+```{r cast_test}
 #cast of zscore to integer
 test_data$zscore <- as.integer(test_data$zscore)
 
@@ -86,60 +79,81 @@ test_data$district <- as.factor(test_data$district)
 
 # Linear Regression
 
-```{r}
-# check how many different values there are in the variable district in the train set
-length(unique(train_data$district))
-# check how many different values there are in the variable district in the data
-length(unique(data$district))
-```
 
-```{r}
-```
-
-
-```{r}
+```{r fit0}
 fit0 <- lm(zscore ~ ., data = train_data)
 summary(fit0)
 ```
 
 By looking at the p-values I can immediately drop m_work and c_breastf since it's not significant
 
-```{r}
+```{r vif_fit0}
 #vif(fit0)
 ```
 
 
-```{r}
+```{r test_fit0}
+library(Metrics)
+predicted <- predict(fit0, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
+
+```{r fit1}
 fit1 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data)
 summary(fit1)
 ```
-```{r}
+
+
+```{r vif_fit1}
 # vif(fit1)
+```
+
+
+```{r test_fit1}
+predicted <- predict(fit1, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
 ```
 
 
 With the help of the stepAIC I try to see if there are other variables that I can drop
 
-```{r}
+```{r stepAIC}
 require(MASS)
 test <- stepAIC(fit0, direction = "both")
 ```
 I can also drop region
 
-```{r}
+```{r fit2}
 fit2 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data)
 summary(fit2)
 ```
 
-```{r}
+
+```{r vif_fit2}
 #vif(fit2)
 ```
 
 
-```{r}
+```{r test_fit2}
+predicted <- predict(fit2, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
+```{r fit11}
 fit11 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data)
 summary(fit11)
 ```
+
+```{r test_fit11}
+predicted <- predict(fit11, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
 
 ```{r}
 c(AIC(fit0), AIC(fit1), AIC(fit2), AIC(fit11))
@@ -188,10 +202,19 @@ train_data2 <- train_data[train_data$c_breastf != 0 & train_data$c_breastf != 1 
 hist(train_data2$c_breastf, probability = TRUE, breaks = 15)
 ```
 
-```{r}
+```{r fit3}
 fit3 <- lm(zscore ~ ., data = train_data2)
 summary(fit3)
 ```
+
+```{r test_fit3}
+predicted <- predict(fit3, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
+RMSE decreases, **but we should find a way to consider also children who have been breastfed for 0/1/2 months**
+
 
 ```{r}
 c(AIC(fit0), AIC(fit3))
@@ -199,12 +222,6 @@ c(AIC(fit0), AIC(fit3))
 
 fit3 has a lower AIC than fit0, this means that fit3 is a better model
 
-```{r}
-pred <- predict(fit3, test_data[test_data$c_breastf > 2, ])
-actual <- test_data[test_data$c_breastf > 2, ]$zscore
-library(Metrics)
-rmse(pred, actual)
-```
 
 ```{r}
 pred <- predict(fit0, test_data[test_data$c_breastf > 2, ])
@@ -233,6 +250,13 @@ fit4 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_educati
 summary(fit4)
 ```
 
+```{r test_fit4}
+predicted <- predict(fit4, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
+
 ```{r}
 plot(fit4)
 ```
@@ -244,6 +268,12 @@ fit5 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_educati
 summary(fit5)
 ```
 
+```{r test_fit5}
+predicted <- predict(fit5, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
 ```{r}
 c(AIC(fit4), AIC(fit5))
 ```
@@ -253,33 +283,63 @@ fit6 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi +
 summary(fit6)
 ```
 
+```{r test_fit6}
+predicted <- predict(fit6, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
+
 ```{r}
 fit7 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + region, data = train_data2)
 summary(fit7)
+```
+
+```{r test_fit7}
+predicted <- predict(fit7, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
 ```
 
 ```{r}
 c(AIC(fit4), AIC(fit5), AIC(fit6), AIC(fit7))
 ```
 
-fit5 is the best, also fit7 has a good AIC
+fit5 is the best, also fit7 has a good AIC. fit6 has the lowest RMSE on the test set.
 
 Now I try to perform the log-transformation of some skewed variables to see if I can improve the model 
 
 ```{r}
 train_data2$log_m_agebirth <- log(train_data2$m_agebirth)
 train_data2$log_m_bmi <- log(train_data2$m_bmi)
+
+test_data$log_m_agebirth <- log(test_data$m_agebirth)
+test_data$log_m_bmi <- log(test_data$m_bmi)
 ```
+
 
 ```{r}
 fit8 <- lm(zscore ~ c_gender + c_age + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
 summary(fit8)
 ```
 
+```{r test_fit8}
+predicted <- predict(fit8, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
 ```{r}
 fit9 <- lm(zscore ~ c_gender + c_age*c_breastf + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
 summary(fit9)
 ```
+
+```{r test_fit9}
+predicted <- predict(fit9, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
 
 ```{r}
 c(AIC(fit4), AIC(fit5), AIC(fit6), AIC(fit7),  AIC(fit8), AIC(fit9))
@@ -291,7 +351,7 @@ By using the log transformation I don't notice any improvement in the model
 plot(fit8)
 ```
 
-**Standardizzare tutte le variabili numeriche e testare tutti i modelli**
+**Standardizzare tutte le variabili numeriche**
 
 # GAM
 
@@ -300,6 +360,7 @@ library(PerformanceAnalytics)
 library(mgcv)
 ```
 
+
 ```{r}
 gamfit0 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + m_work + region + district, data = train_data2)
 summary(gamfit0)
@@ -307,10 +368,24 @@ summary(gamfit0)
 
 I can remove the variable m_work because it is not significant and make m_agebirth, m_height and m_bmi as linear variables
 
+```{r test_gamfit0}
+predicted <- predict(gamfit0, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
+
 ```{r}
 gamfit1 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data2)
 summary(gamfit1)
 ```
+
+```{r test_gamfit1}
+predicted <- predict(gamfit1, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
 I try with the log variables
 
 ```{r}
@@ -318,19 +393,40 @@ gamfit2 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_
 summary(gamfit2)
 ```
 
+```{r test_gamfit2}
+predicted <- predict(gamfit2, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
+
 ```{r}
 gamfit3 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + district, data = train_data2)
 summary(gamfit3)
 ```
+
+```{r test_gamfit3}
+predicted <- predict(gamfit3, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
 
 ```{r}
 gamfit4 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
 summary(gamfit4)
 ```
 
+```{r test_gamfit4}
+predicted <- predict(gamfit4, test_data[test_data$c_breastf > 2,])
+actual <- test_data[test_data$c_breastf > 2,]$zscore
+rmse(predicted, actual)
+```
+
+
 ```{r}
 c(AIC(gamfit1), AIC(gamfit2), AIC(gamfit3), AIC(gamfit4))
 ```
 
-gamfit4 has the best AIC, but it has a lower value of deviance explained.
+gamfit4 has the best AIC, but it has a lower value of deviance explained. gamfit0 has the lowest RMSE on the test set.
 
