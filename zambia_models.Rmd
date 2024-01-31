@@ -4,7 +4,7 @@ author: "Annalisa Paladino"
 output: html_document
 ---
 
-Import the data and split in train-set and test-set
+Import the data and split in train-set and test-set.
 
 ```{r import_data}
 library(haven)
