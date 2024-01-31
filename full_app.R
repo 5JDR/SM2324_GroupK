@@ -24,7 +24,7 @@ ui <- dashboardPage(
                
                #menuSubItem("Breast-feedings", tabName = "Breast-feedings"),
                menuSubItem("Breast-feedings", tabName = "zscoreBreastfMarginalPlot"),
-               menuSubItem("Correlation Test", tabName = "corTestZscoreBreastf"),
+               
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
       menuItem("Predictive Model Building", tabName = "modelBuilding", icon = icon("cogs"),
@@ -90,6 +90,7 @@ ui <- dashboardPage(
                    the zscore distribution seems quite balanced for males and females.</p>")),
       #tabItem(tabName = "Breast-feedings", plotlyOutput("cBreastfHist",height = "800px")),
       tabItem(tabName = "zscoreBreastfMarginalPlot",
+              checkboxInput("hideZeroBreastf", "Hide Breast-feedings <= 2", FALSE),
               
               fluidRow(
                 column(8, plotlyOutput("hist_c_breastf"))
@@ -99,7 +100,7 @@ ui <- dashboardPage(
                 column(4, plotlyOutput("hist_zscore",width = '200px'))
               ) 
       ),
-      tabItem(tabName = "corTestZscoreBreastf", verbatimTextOutput("corTestZscoreBreastf")),
+      
       tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
       # Add tabItems for model building
@@ -152,6 +153,8 @@ server <- function(input, output) {
   #factorize district
   train_data$district <- as.factor(train_data$district)
   
+ 
+  
   # Data Overview
   output$dataOverview <- DT::renderDataTable({
     DT::datatable(data, options = list(pageLength = 5))
@@ -177,7 +180,9 @@ server <- function(input, output) {
   # Interactive Correlation Matrix
   output$correlationMatrix <- renderPlotly({
     cor_matrix <- cor(train_data[, c("zscore", "c_breastf", "c_age", "m_agebirth", "m_height", "m_bmi")]) # Add your variables here
-    melted_cor_matrix <- melt(cor_matrix)
+    cor_matrix[upper.tri(cor_matrix)] <- NA  # Set the upper triangle of the correlation matrix to NA
+    
+    melted_cor_matrix <- melt(cor_matrix, na.rm = TRUE)  # Melt the matrix, removing NA values
     
     p <- ggplot(melted_cor_matrix, aes(Var1, Var2, fill = value)) +
       geom_tile(color = "white") +  # Adds a border around each tile
@@ -195,24 +200,33 @@ server <- function(input, output) {
     ggplotly(p, tooltip = "text")  # Enhances interactivity with tooltips
   })
   
-  # Bar Plot of c_gender
   output$genderAnalysis <- renderPlotly({
     # Filter data based on selected gender
     if (input$genderSelect == "0") {  # Female
       data_to_plot <- subset(train_data, c_gender == 0)
+      bar_color <- "pink"  # Set color to pink for females
     } else if (input$genderSelect == "1") {  # Male
       data_to_plot <- subset(train_data, c_gender == 1)
+      bar_color <- "blue"  # Choose a different color for males
     } else {  # Both genders
       data_to_plot <- train_data
+      bar_color <- "grey"  # Neutral color for both genders
     }
     
-    # Plot histogram
-    plot_ly(data_to_plot, x = ~zscore, type = 'histogram',
-            marker = list(opacity = 0.6)) %>%
-      layout(title = 'Histogram of zscore by Gender',
+    # Plot relative frequency histogram
+    plot_ly(data_to_plot, x = ~zscore, type = 'histogram', histnorm = "probability",
+            marker = list(
+              color = bar_color,
+              opacity = 0.6,
+              line = list(color = 'black', width = 2)  # Add border with specified color and width
+            )) %>%
+      layout(title = 'Relative Frequency Histogram of zscore by Gender',
              xaxis = list(title = 'zscore'),
-             yaxis = list(title = 'Count'))
+             yaxis = list(title = 'Relative Frequency'))
   })
+  
+  
+  
   
   
   
@@ -226,43 +240,55 @@ server <- function(input, output) {
       labs(title = "Histograms of zscore by gender", x = "zscore", y = NULL)
     ggplotly(p)
   })
-  
-  
-  
-  # Marginal Plot of zscore and c_breastf
-  output$scatterPlot <- renderPlotly({
-    # Create the scatter plot
-    # Create the scatter plot
-    scatterPlot <- plot_ly(train_data, x = ~c_breastf, y = ~zscore, type = 'scatter', mode = 'markers') %>%
-      layout(title = '',
-             xaxis = list(title = 'breast-feedings months'),
-             yaxis = list(title = 'zscore'))
     
-    # Print the plot
-    scatterPlot
+   
+   filtered_data <- reactive({
+    if (input$hideZeroBreastf) {
+      subset(train_data, c_breastf > 2)
+    } else {
+      train_data
+    }
   })
-  # Histogram for c_breastf
-  hist_c_breastf <- plot_ly(train_data, x = ~c_breastf, type = 'histogram', 
-                            marker = list(color = 'rgba(102,194,165,0.5)')) %>%
-    layout(showlegend = FALSE, 
-           xaxis = list(title = ""),
-           yaxis = list(title = "Count"))
+   #make filtered data a dataframe
+   
   
-  # Histogram for zscore
-  hist_zscore <- plot_ly(train_data, y = ~zscore, type = 'histogram', 
-                         marker = list(color = 'rgba(252,141,98,0.5)')) %>%
-    layout(showlegend = FALSE, 
-           xaxis = list(title = "Count"),
-           yaxis = list(title = ""))
+   # Marginal Plot of zscore and c_breastf
+   output$scatterPlot <- renderPlotly({
+     # Use the filtered data for the scatter plot
+     scatterPlot <- plot_ly(filtered_data(), x = ~c_breastf, y = ~zscore, type = 'scatter', mode = 'markers') %>%
+       layout(title = '',
+              xaxis = list(title = 'Breast-feedings months'),
+              yaxis = list(title = 'zscore'))
+     
+     scatterPlot
+   })
+   
+   # Histogram for c_breastf
+   output$hist_c_breastf <- renderPlotly({
+     hist_c_breastf <- plot_ly(filtered_data(), x = ~c_breastf, type = 'histogram', histnorm = "probability",
+                               marker = list(
+                                 color = 'rgba(102,194,165,0.5)',
+                                 line = list(color = 'black', width = 2)  # Adding border
+                               )) %>%
+       layout(showlegend = FALSE, 
+              xaxis = list(title = ""),
+              yaxis = list(title = "Relative Frequency"))
+     
+     hist_c_breastf
+   })
+   
+   # Histogram for zscore
+   output$hist_zscore <- renderPlotly({
+     hist_zscore <- plot_ly(filtered_data(), y = ~zscore, type = 'histogram', histnorm = "probability",
+                            marker = list(color = 'rgba(252,141,98,0.5)',line = list(color = 'black', width = 2))) %>%
+       layout(showlegend = FALSE, 
+              xaxis = list(title = "Relative Frequency"),
+              yaxis = list(title = ""))
+     
+     hist_zscore
+   })
   
-  output$hist_c_breastf <- renderPlotly({ hist_c_breastf })
-  output$hist_zscore <- renderPlotly({ hist_zscore })
   
-  
-  # Correlation Test Between zscore and c_breastf
-  output$corTestZscoreBreastf <- renderPrint({
-    cor.test(train_data$zscore, train_data$c_breastf)
-  })
   
   # Predictive Model Building - Placeholder for Implementation
   output$modelBuilding <- renderPrint({
@@ -298,8 +324,10 @@ server <- function(input, output) {
     # Create basic map with region boundaries
     leaflet(zambia_map) %>%
       addPolygons(
-        color = ~pal(zscore),
+        color = "black", # Set border color to black
+        fillColor = ~pal(zscore),
         fillOpacity = 1,
+        weight = 1, # Adjust the border width if needed
         #popup of region name and zscore
         popup = ~paste0("Region: ", zambia_map$region, "<br>",
                         "Z-score: ", zambia_map$zscore)
@@ -312,8 +340,6 @@ server <- function(input, output) {
         title = "Z-SCORE",
         opacity = 1
       )
-    
-    
   })
   
   
