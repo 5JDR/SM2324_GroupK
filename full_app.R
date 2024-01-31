@@ -293,7 +293,7 @@ server <- function(input, output) {
     pull(zscore)
   
   # Add color gradient based on zscore, with a scale of grey
-  pal<-colorNumeric(palette = "viridis", domain = zambia_map$zscore, alpha = 0.7)
+  pal<-colorNumeric(palette = "RdYlGn", domain = zambia_map$zscore, alpha = 0.7)
   output$regionalAnalysis <- renderLeaflet({
     # Create basic map with region boundaries
     leaflet(zambia_map) %>%
@@ -307,7 +307,7 @@ server <- function(input, output) {
       # Add legend
       addLegend(
         position = "bottomright", # Can be "topright", "bottomright", "bottomleft", or "topleft".
-        pal = colorNumeric(palette = "viridis", domain = zambia_map$zscore),
+        pal = colorNumeric(palette = "RdYlGn", domain = zambia_map$zscore),
         values = zambia_map$zscore,
         title = "Z-SCORE",
         opacity = 1
