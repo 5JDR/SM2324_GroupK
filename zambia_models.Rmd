@@ -143,6 +143,8 @@ actual <- test_data$zscore
 rmse(predicted, actual)
 ```
 
+Let's use region instead of district.
+
 ```{r fit11}
 fit11 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data)
 summary(fit11)
@@ -213,21 +215,34 @@ actual <- test_data[test_data$c_breastf > 2,]$zscore
 rmse(predicted, actual)
 ```
 
-RMSE decreases, **but we should find a way to consider also children who have been breastfed for 0/1/2 months**
+RMSE decreases, **but we should find a way to consider also children who have been breastfed for 0/1/2 months**, let's try to transform it in a binary variable.
+
+```{r}
+# Modify c_breasft to be binary, 0 when c_breastf < 2, 1 when c_breastf > 2
+library(dplyr)
+train_data3 <- train_data %>%
+  mutate(c_breastf = ifelse(c_breastf < 2, 0, 1))
+test_data3 <- test_data %>%
+  mutate(c_breastf = ifelse(c_breastf < 2, 0, 1))
+```
+
+```{r}
+fitN <- lm(zscore ~ ., data = train_data3)
+summary(fitN)
+```
+
+```{r test_fitN}
+predicted <- predict(fitN, test_data3)
+actual <- test_data3$zscore
+rmse(predicted, actual)
+```
 
 
 ```{r}
-c(AIC(fit0), AIC(fit3))
+c(AIC(fit0), AIC(fit3), AIC(fitN))
 ```
 
-fit3 has a lower AIC than fit0, this means that fit3 is a better model
-
-
-```{r}
-pred <- predict(fit0, test_data[test_data$c_breastf > 2, ])
-actual <- test_data[test_data$c_breastf > 2, ]$zscore
-rmse(pred, actual)
-```
+fit3 has a lower AIC than fit0, this means that fit3 is a better model.
 
 
 ```{r}
@@ -245,14 +260,16 @@ rmse(pred, actual)
 stepAIC(fit3, direction = "both")
 ```
 
+
+
 ```{r}
-fit4 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data2)
+fit4 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, data = train_data)
 summary(fit4)
 ```
 
 ```{r test_fit4}
-predicted <- predict(fit4, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+predicted <- predict(fit4, test_data)
+actual <- test_data$zscore
 rmse(predicted, actual)
 ```
 
@@ -262,6 +279,7 @@ plot(fit4)
 ```
 
 The plots are still not good, I try to perform the log-transformation of some skewed variables to see if I can improve the model (Somehow the Residuals vs Fitted plot shows a worse behavior than the previous one)
+
 
 ```{r}
 fit5 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data2)
@@ -278,26 +296,29 @@ rmse(predicted, actual)
 c(AIC(fit4), AIC(fit5))
 ```
 
+Let's try to add the interaction between c_age and c_breastf because they are correlated.
+
 ```{r}
-fit6 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + district, data = train_data2)
+fit6 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + district, data = train_data3)
 summary(fit6)
 ```
 
 ```{r test_fit6}
-predicted <- predict(fit6, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+predicted <- predict(fit6, test_data3)
+actual <- test_data3$zscore
 rmse(predicted, actual)
 ```
 
+This is the best linear model found so far.
 
 ```{r}
-fit7 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + region, data = train_data2)
+fit7 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + region, data = train_data3)
 summary(fit7)
 ```
 
 ```{r test_fit7}
-predicted <- predict(fit7, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+predicted <- predict(fit7, test_data3)
+actual <- test_data3$zscore
 rmse(predicted, actual)
 ```
 
@@ -310,33 +331,40 @@ fit5 is the best, also fit7 has a good AIC. fit6 has the lowest RMSE on the test
 Now I try to perform the log-transformation of some skewed variables to see if I can improve the model 
 
 ```{r}
-train_data2$log_m_agebirth <- log(train_data2$m_agebirth)
-train_data2$log_m_bmi <- log(train_data2$m_bmi)
+train_data_log <- train_data
+train_data_log$m_agebirth <- log(train_data$m_agebirth)
+train_data_log$m_bmi <- log(train_data$m_bmi)
 
-test_data$log_m_agebirth <- log(test_data$m_agebirth)
-test_data$log_m_bmi <- log(test_data$m_bmi)
+#train_data2$log_m_agebirth <- log(train_data2$m_agebirth)
+#train_data2$log_m_bmi <- log(train_data2$m_bmi)
+
+test_data_log <- test_data
+test_data_log$m_agebirth <- log(test_data$m_agebirth)
+test_data_log$m_bmi <- log(test_data$m_bmi)
 ```
 
 
 ```{r}
-fit8 <- lm(zscore ~ c_gender + c_age + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
+fit8 <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data_log)
 summary(fit8)
 ```
 
 ```{r test_fit8}
-predicted <- predict(fit8, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+predicted <- predict(fit8, test_data_log)
+actual <- test_data_log$zscore
 rmse(predicted, actual)
 ```
 
+Since the interaction gave good results before, I try to add it again.
+
 ```{r}
-fit9 <- lm(zscore ~ c_gender + c_age*c_breastf + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
+fit9 <- lm(zscore ~ c_gender + c_age*c_breastf + m_agebirth + m_height + m_bmi + m_education + region, data = train_data_log)
 summary(fit9)
 ```
 
 ```{r test_fit9}
-predicted <- predict(fit9, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+predicted <- predict(fit9, test_data_log)
+actual <- test_data_log$zscore
 rmse(predicted, actual)
 ```
 
@@ -351,8 +379,6 @@ By using the log transformation I don't notice any improvement in the model
 plot(fit8)
 ```
 
-**Standardizzare tutte le variabili numeriche**
-
 # GAM
 
 ```{r}
@@ -362,71 +388,286 @@ library(mgcv)
 
 
 ```{r}
-gamfit0 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + m_work + region + district, data = train_data2)
+gamfit0 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + m_work + region + district, data = train_data)
 summary(gamfit0)
+```
+
+```{r test_gamfit0}
+predicted <- predict(gamfit0, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
 ```
 
 I can remove the variable m_work because it is not significant and make m_agebirth, m_height and m_bmi as linear variables
 
-```{r test_gamfit0}
-predicted <- predict(gamfit0, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
-rmse(predicted, actual)
-```
-
-
 ```{r}
-gamfit1 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data2)
+gamfit1 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data)
 summary(gamfit1)
 ```
 
 ```{r test_gamfit1}
-predicted <- predict(gamfit1, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+predicted <- predict(gamfit1, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
+```{r}
+gamfit2 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region, data = train_data)
+summary(gamfit2)
+```
+
+```{r test_gamfit_log}
+predicted <- predict(gamfit2, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
+```{r gamfit3}
+gamfit3 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + district, data = train_data)
+summary(gamfit3)
+```
+
+```{r test_gamfit3}
+predicted <- predict(gamfit3, test_data)
+actual <- test_data$zscore
 rmse(predicted, actual)
 ```
 
 I try with the log variables
 
 ```{r}
-gamfit2 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + region + district, data = train_data2)
-summary(gamfit2)
+gamfit_log <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data_log)
+summary(gamfit_log)
 ```
 
-```{r test_gamfit2}
-predicted <- predict(gamfit2, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+```{r test_gamfit_log}
+predicted <- predict(gamfit_log, test_data_log)
+actual <- test_data_log$zscore
+rmse(predicted, actual)
+```
+
+
+```{r gamfit_log2}
+gamfit_log2 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + district, data = train_data_log)
+summary(gamfit_log2)
+```
+
+
+```{r test_gamfit_log2}
+predicted <- predict(gamfit_log2, test_data_log)
+actual <- test_data_log$zscore
+rmse(predicted, actual)
+```
+
+
+```{r gamfit_log3}
+gamfit_log3 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region, data = train_data_log)
+summary(gamfit_log3)
+```
+
+
+```{r test_gamfit_log3}
+predicted <- predict(gamfit_log3, test_data_log)
+actual <- test_data_log$zscore
 rmse(predicted, actual)
 ```
 
 
 ```{r}
-gamfit3 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + district, data = train_data2)
-summary(gamfit3)
+c(AIC(gamfit0), AIC(gamfit1), AIC(gamfit2), AIC(gamfit3), AIC(gamfit_log), AIC(gamfit_log2), AIC(gamfit_log3))
 ```
 
-```{r test_gamfit3}
-predicted <- predict(gamfit3, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+
+gamfit_log and gamfit_log2 have the best AIC, all the models have similar test errors.
+
+Since all the models that have been tried so far give similar results, let's try Trees and Random Forests
+
+# Trees and Random Forests
+
+```{r trees}
+library(tree)
+t0 <- tree(zscore ~ . -district, data = train_data) # District cannot be used because it has too many levels
+summary(t0)
+```
+
+```{r test_t0}
+predicted <- predict(t0, test_data)
+actual <- test_data$zscore
 rmse(predicted, actual)
 ```
 
 
 ```{r}
-gamfit4 <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + log_m_agebirth + m_height + log_m_bmi + m_education + region, data = train_data2)
-summary(gamfit4)
+library(randomForest)
+rf0 <- randomForest(zscore ~ . - district, data = train_data) # District cannot be used because it has too many levels
+summary(rf0)
 ```
 
-```{r test_gamfit4}
-predicted <- predict(gamfit4, test_data[test_data$c_breastf > 2,])
-actual <- test_data[test_data$c_breastf > 2,]$zscore
+```{r test_rf0}
+predicted <- predict(rf0, test_data)
+actual <- test_data$zscore
 rmse(predicted, actual)
+```
+
+Since the tree didn't give interesting results, let's try to improve the Random Forest.
+
+```{r rf1}
+rf1 <- randomForest(zscore ~ . - district - m_work, data = train_data) # District cannot be used because it has too many levels
+summary(rf1)
+```
+
+
+```{r test_rf1}
+predicted <- predict(rf1, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
+```{r rf2}
+rf2 <- randomForest(zscore ~ . - district - m_work - c_breastf, data = train_data) # District cannot be used because it has too many levels
+summary(rf2)
+```
+
+
+```{r test_rf2}
+predicted <- predict(rf2, test_data)
+actual <- test_data$zscore
+rmse(predicted, actual)
+```
+
+```{r rf3}
+rf3 <- randomForest(zscore ~ . - district - m_work, data = train_data_log) # District cannot be used because it has too many levels
+summary(rf3)
 ```
 
 
 ```{r}
-c(AIC(gamfit1), AIC(gamfit2), AIC(gamfit3), AIC(gamfit4))
+predicted <- predict(rf3, test_data_log)
+actual <- test_data_log$zscore
+rmse(predicted, actual)
 ```
 
-gamfit4 has the best AIC, but it has a lower value of deviance explained. gamfit0 has the lowest RMSE on the test set.
+```{r rf4}
+rf4 <- randomForest(zscore ~ c_gender + c_breastf + c_age + m_agebirth + m_height + m_work + m_bmi + m_education + region, data = train_data_log) # District cannot be used because it has too many levels
+summary(rf4)
+```
 
+```{r test_rf4}
+predicted <- predict(rf4, test_data_log)
+actual <- test_data_log$zscore
+rmse(predicted, actual)
+```
+
+```{r rf5}
+rf5 <- randomForest(zscore ~ c_gender + c_age + c_breastf + m_agebirth + m_height + m_bmi + m_education + region, data = train_data_log) # District cannot be used because it has too many levels
+summary(rf5)
+```
+
+```{r test_rf5}
+predicted <- predict(rf5, test_data_log)
+actual <- test_data_log$zscore
+rmse(predicted, actual)
+```
+
+```{r rf6}
+rf6 <- randomForest(zscore ~ c_gender + c_age + c_breastf + m_agebirth + m_height + m_education + region, data = train_data_log) # District cannot be used because it has too many levels
+summary(rf6)
+```
+
+```{r test_rf6}
+predicted <- predict(rf6, test_data_log)
+actual <- test_data_log$zscore
+rmse(predicted, actual)
+```
+
+Let's try to standardize the numerical variables, and then train the best lm, GAM and RF models again.
+
+```{r standardize}
+mean_c_breastf <- mean(train_data$c_breastf)
+mean_c_age <- mean(train_data$c_age)
+mean_m_agebirth <- mean(train_data$m_agebirth)
+mean_m_height <- mean(train_data$m_height)
+mean_m_bmi <- mean(train_data$m_bmi)
+
+sd_c_breastf <- sd(train_data$c_breastf)
+sd_c_age <- sd(train_data$c_age)
+sd_m_agebirth <- sd(train_data$m_agebirth)
+sd_m_height <- sd(train_data$m_height)
+sd_m_bmi <- sd(train_data$m_bmi)
+
+train_data_standardized <- train_data %>% 
+  mutate(c_breastf = (c_breastf - mean_c_breastf) / sd_c_breastf,
+         c_age = (c_age - mean_c_age) / sd_c_age,
+         m_agebirth = (m_agebirth - mean_m_agebirth) / sd_m_agebirth,
+         m_height = (m_height - mean_m_height) / sd_m_height,
+         m_bmi = (m_bmi - mean_m_bmi) / sd_m_bmi)
+
+test_data_standardized <- test_data %>%
+  mutate(c_breastf = (c_breastf - mean_c_breastf) / sd_c_breastf,
+         c_age = (c_age - mean_c_age) / sd_c_age,
+         m_agebirth = (m_agebirth - mean_m_agebirth) / sd_m_agebirth,
+         m_height = (m_height - mean_m_height) / sd_m_height,
+         m_bmi = (m_bmi - mean_m_bmi) / sd_m_bmi)
+```
+
+```{r standardize_log}
+mean_c_breastf <- mean(train_data_log$c_breastf)
+mean_c_age <- mean(train_data_log$c_age)
+mean_m_agebirth <- mean(train_data_log$m_agebirth)
+mean_m_height <- mean(train_data_log$m_height)
+mean_m_bmi <- mean(train_data_log$m_bmi)
+
+sd_c_breastf <- sd(train_data_log$c_breastf)
+sd_c_age <- sd(train_data_log$c_age)
+sd_m_agebirth <- sd(train_data_log$m_agebirth)
+sd_m_height <- sd(train_data_log$m_height)
+sd_m_bmi <- sd(train_data_log$m_bmi)
+
+train_data_standardized_log <- train_data_log %>% 
+  mutate(c_breastf = (c_breastf - mean_c_breastf) / sd_c_breastf,
+         c_age = (c_age - mean_c_age) / sd_c_age,
+         m_agebirth = (m_agebirth - mean_m_agebirth) / sd_m_agebirth,
+         m_height = (m_height - mean_m_height) / sd_m_height,
+         m_bmi = (m_bmi - mean_m_bmi) / sd_m_bmi)
+
+test_data_standardized_log <- test_data_log %>%
+  mutate(c_breastf = (c_breastf - mean_c_breastf) / sd_c_breastf,
+         c_age = (c_age - mean_c_age) / sd_c_age,
+         m_agebirth = (m_agebirth - mean_m_agebirth) / sd_m_agebirth,
+         m_height = (m_height - mean_m_height) / sd_m_height,
+         m_bmi = (m_bmi - mean_m_bmi) / sd_m_bmi)
+```
+
+```{r lm_standardized}
+lm_standardized <- lm(zscore ~ c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + region, data = train_data_standardized)
+summary(lm_standardized)
+```
+
+```{r test_lm_standardized}
+predicted <- predict(lm_standardized, test_data_standardized)
+actual <- test_data_standardized$zscore
+rmse(predicted, actual)
+```
+
+```{r gam_standardized}
+gamfit_log_standardized <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + m_agebirth + m_height + m_bmi + m_education + region + district, data = train_data_standardized_log)
+summary(gamfit_log_standardized)
+```
+
+```{r test_gam_standardized}
+predicted <- predict(gamfit_log_standardized, test_data_standardized_log)
+actual <- test_data_standardized_log$zscore
+rmse(predicted, actual)
+```
+
+```{r rf_standardized}
+rf1_standardized <- randomForest(zscore ~ . - district - m_work, data = train_data_standardized) # District cannot be used because it has too many levels
+summary(rf1_standardized)
+```
+
+
+```{r test_rf_standardized}
+predicted <- predict(rf1_standardized, test_data_standardized)
+actual <- test_data_standardized$zscore
+rmse(predicted, actual)
+```
