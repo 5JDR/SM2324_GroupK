@@ -255,12 +255,14 @@ server <- function(input, output) {
    # Marginal Plot of zscore and c_breastf
    output$scatterPlot <- renderPlotly({
      # Use the filtered data for the scatter plot
-     scatterPlot <- plot_ly(filtered_data(), x = ~c_breastf, y = ~zscore, type = 'scatter', mode = 'markers') %>%
+     scatterPlot <- plot_ly(filtered_data(), x = ~c_breastf, y = ~zscore, type = 'scatter', mode = 'markers', showlegend = F) %>%
        layout(title = '',
               xaxis = list(title = 'Breast-feedings months', range = c(0, 48)),
-              yaxis = list(title = 'zscore'))
-     
-     scatterPlot
+              yaxis = list(title = 'zscore'),
+              legend = list(c = 0.1, y = 0.9))
+     fit <- lm(zscore ~ c_breastf, data = filtered_data())
+     scatterPlot %>% 
+       add_trace(x = filtered_data()$c_breastf, y = fitted(fit), mode = "lines", name = "Regression Line")
    })
    
    # Histogram for c_breastf
