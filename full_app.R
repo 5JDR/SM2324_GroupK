@@ -97,7 +97,7 @@ ui <- dashboardPage(
               ),
               fluidRow(
                 column(8, plotlyOutput("scatterPlot")),
-                column(4, plotlyOutput("hist_zscore",width = '200px'))
+                column(4, plotlyOutput("hist_zscore",width = '250px'))
               ) 
       ),
       
@@ -257,7 +257,7 @@ server <- function(input, output) {
      # Use the filtered data for the scatter plot
      scatterPlot <- plot_ly(filtered_data(), x = ~c_breastf, y = ~zscore, type = 'scatter', mode = 'markers') %>%
        layout(title = '',
-              xaxis = list(title = 'Breast-feedings months'),
+              xaxis = list(title = 'Breast-feedings months', range = c(0, 48)),
               yaxis = list(title = 'zscore'))
      
      scatterPlot
@@ -271,8 +271,8 @@ server <- function(input, output) {
                                  line = list(color = 'black', width = 2)  # Adding border
                                )) %>%
        layout(showlegend = FALSE, 
-              xaxis = list(title = ""),
-              yaxis = list(title = "Relative Frequency"))
+              xaxis = list(title = "", range = c(0, 48)),
+              yaxis = list(title = "Relative Frequency", range = c(0, 0.25)))
      
      hist_c_breastf
    })
@@ -282,7 +282,7 @@ server <- function(input, output) {
      hist_zscore <- plot_ly(filtered_data(), y = ~zscore, type = 'histogram', histnorm = "probability",
                             marker = list(color = 'rgba(252,141,98,0.5)',line = list(color = 'black', width = 2))) %>%
        layout(showlegend = FALSE, 
-              xaxis = list(title = "Relative Frequency"),
+              xaxis = list(title = "Relative Frequency", range = c(0, 0.075)),
               yaxis = list(title = ""))
      
      hist_zscore
