@@ -1,0 +1,971 @@
+---
+title: "Zambia Models v2"
+author: "Sandro Junior Della Rovere"
+output: html_document
+---
+
+Import the data and split in train-set and test-set.
+
+```{r import_data}
+library(haven)
+data <- read_dta("data/zambia_height92.dta")
+head(data)
+
+#split data in train and test set
+set.seed(123)
+train <- sample(1:nrow(data), 0.85*nrow(data))
+
+test <- setdiff(1:nrow(data), train)
+
+train_data <- data[train,]
+test_data <- data[test,]
+```
+
+Cast the variables to their type.
+
+```{r cast_train}
+#cast of zscore to integer
+train_data$zscore <- as.integer(train_data$zscore)
+
+#factorize gender
+train_data$c_gender <- as.factor(train_data$c_gender)
+
+#cast c_breastf as integer
+train_data$c_breastf <- as.integer(train_data$c_breastf)
+
+#cast c_age as integer
+train_data$c_age <- as.integer(train_data$c_age)
+
+#NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
+
+#factorize m_education
+train_data$m_education <- as.factor(train_data$m_education)
+
+#factorize m_work
+train_data$m_work <- as.factor(train_data$m_work)
+
+#factorize region
+train_data$region <- as.factor(train_data$region)
+
+#factorize district
+train_data$district <- as.factor(train_data$district)
+```
+
+```{r cast_test}
+#cast of zscore to integer
+test_data$zscore <- as.integer(test_data$zscore)
+
+#factorize gender
+test_data$c_gender <- as.factor(test_data$c_gender)
+
+#cast c_breastf as integer
+test_data$c_breastf <- as.integer(test_data$c_breastf)
+
+#cast c_age as integer
+test_data$c_age <- as.integer(test_data$c_age)
+
+#NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
+
+#factorize m_education
+test_data$m_education <- as.factor(test_data$m_education)
+
+#factorize m_work
+test_data$m_work <- as.factor(test_data$m_work)
+
+#factorize region
+test_data$region <- as.factor(test_data$region)
+
+#factorize district
+test_data$district <- as.factor(test_data$district)
+```
+
+Since the response is almost a perfect Gaussian, let's try to predict it by picking randomly from a normal distribution.
+
+```{r random_normal}
+predicted <- rnorm(nrow(test_data), mean = mean(train_data$zscore), sd = sd(train_data$zscore))
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+# Linear Regression
+
+Null model
+
+```{r lm_null}
+lm_null <- lm(zscore ~ 1, data = train_data)
+
+summary(lm_null)
+
+# Test error
+predicted <- predict(lm_null, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Let's use only the most correlated variables with the target variable.
+
+```{r most_correlated}
+lm_c_breastf <- lm(zscore ~ c_breastf, data = train_data)
+lm_c_age <- lm(zscore ~ c_age, data = train_data)
+lm_m_height <- lm(zscore ~ m_height, data = train_data)
+
+summary(lm_c_breastf)
+summary(lm_c_age)
+summary(lm_m_height)
+
+# Test error
+predicted <- predict(lm_c_breastf, newdata = test_data)
+MSE_c_breastf <- mean((predicted - test_data$zscore)^2)
+RMSE_c_breastf <- sqrt(MSE_c_breastf)
+MAE_c_breastf <- mean(abs(predicted - test_data$zscore))
+
+predicted <- predict(lm_c_age, newdata = test_data)
+MSE_c_age <- mean((predicted - test_data$zscore)^2)
+RMSE_c_age <- sqrt(MSE_c_age)
+MAE_c_age <- mean(abs(predicted - test_data$zscore))
+
+predicted <- predict(lm_m_height, newdata = test_data)
+MSE_m_height <- mean((predicted - test_data$zscore)^2)
+RMSE_m_height <- sqrt(MSE_m_height)
+MAE_m_height <- mean(abs(predicted - test_data$zscore))
+
+paste("c_breastf - MSE: ", MSE_c_breastf, ", RMSE: ", RMSE_c_breastf, ", MAE: ", MAE_c_breastf)
+paste("c_age - MSE: ", MSE_c_age, ", RMSE: ", RMSE_c_age, ", MAE: ", MAE_c_age)
+paste("m_height - MSE: ", MSE_m_height, ", RMSE: ", RMSE_m_height, ", MAE: ", MAE_m_height)
+```
+
+Let's compute the AIC and BIC for the null model and the most correlated variables.
+
+```{r aic_bic}
+AIC_null <- AIC(lm_null)
+BIC_null <- BIC(lm_null)
+
+AIC_c_breastf <- AIC(lm_c_breastf)
+BIC_c_breastf <- BIC(lm_c_breastf)
+
+AIC_c_age <- AIC(lm_c_age)
+BIC_c_age <- BIC(lm_c_age)
+
+AIC_m_height <- AIC(lm_m_height)
+BIC_m_height <- BIC(lm_m_height)
+
+paste("Null model - AIC: ", round(AIC_null), ", BIC: ", round(BIC_null))
+paste("c_breastf - AIC: ", round(AIC_c_breastf), ", BIC: ", round(BIC_c_breastf))
+paste("c_age - AIC: ", round(AIC_c_age), ", BIC: ", round(BIC_c_age))
+paste("m_height - AIC: ", round(AIC_m_height), ", BIC: ", round(BIC_m_height))
+```
+
+The model with only c_age as predictor is the one with the lowest AIC and BIC, it also has the highest R-squared, but the model with only m_height is the one with the lowest test error.
+
+Let's see the residual plots for the models.
+
+```{r residual_plots}
+par(mfrow=c(2,2))
+plot(lm_null)
+mtext("null model", side = 3, line = -2, outer = TRUE)
+plot(lm_c_breastf)
+mtext("c_breastf model", side = 3, line = -2, outer = TRUE)
+plot(lm_c_age)
+mtext("c_age model", side = 3, line = -2, outer = TRUE)
+plot(lm_m_height)
+mtext("m_height model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+The residual plots for the null model show that it has many problems. All the models show some heavy tails in the Q-Q residuals, the model with c-breastf as the only predictor shows some heteroscedasticity, and the model with c_age as the only predictor shows some non-linearity in the residuals.
+
+Let's try to use all the three variables.
+
+```{r all_correlated_variables}
+lm_all_correlated <- lm(zscore ~ c_breastf + c_age + m_height, data = train_data)
+
+summary(lm_all_correlated)
+
+# Test error
+predicted <- predict(lm_all_correlated, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_all_correlated)
+BIC <- BIC(lm_all_correlated)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The R-squared increased, test error and both AIC and BIC decreased, so the model has improved.
+
+Let's take a look at the residuals.
+
+```{r residual_plots_all_correlated}
+par(mfrow=c(2,2))
+plot(lm_all_correlated)
+mtext("all correlated variables model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Except from the heavy tails in the Q-Q residuals, the model seems to be fine.
+
+Let's try to use all the variables as predictors.
+
+```{r all_variables}
+lm_all <- lm(zscore ~ ., data = train_data)
+
+summary(lm_all)
+
+# Test error
+predicted <- predict(lm_all, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_all)
+BIC <- BIC(lm_all)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The R-squared increased, test error and AIC decreased, but BIC increased. The full model is usually not a wise choice, it's too complex. 
+
+Let's take a look at the residuals.
+
+```{r residual_plots_all}
+par(mfrow=c(2,2))
+plot(lm_all)
+mtext("full model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Again, the residual plots don't show any major problems.
+
+Let's try to remove the less significant predictors.
+
+```{r remove_less_significant_predictors}
+# Less significant predictors are: c_breastf, m_work, district
+
+lm_most_significant <- lm(zscore ~ . - c_breastf - m_work - district, data = train_data)
+
+summary(lm_most_significant)
+
+# Test error
+predicted <- predict(lm_most_significant, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_most_significant)
+BIC <- BIC(lm_most_significant)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The R-squared decreased but not much, test error and AIC increased just a little, but BIC decreased. The model is a good compromise between complexity and performance when compared to the full model.
+
+Let's take a look at the residuals.
+
+```{r residual_plots_most_significant}
+par(mfrow=c(2,2))
+plot(lm_most_significant)
+mtext("most significant model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Except from the heavy tails in the Q-Q residuals, the model only shows some non-linearity in the residuals.
+
+Since c_age and c_breastf are highly correlated, let's try to introduce interaction between them.
+
+```{r interaction_c_age_c_breastf}
+lm_interaction <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data)
+
+summary(lm_interaction)
+
+# Test error
+predicted <- predict(lm_interaction, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_interaction)
+BIC <- BIC(lm_interaction)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Test error, BIC and AIC decreased, R-squared increased. The model has improved.
+
+Let's take a look at the residuals.
+
+```{r residual_plots_interaction}
+par(mfrow=c(2,2))
+plot(lm_interaction)
+mtext("interaction model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Except from the heavy tails in the Q-Q residuals, the model seems to be fine.
+
+Let's try to log-transform the skewed variables.
+
+```{r log_transform}
+# Plot the distribution of m_agebirth
+hist(train_data$m_agebirth, main = "Distribution of m_agebirth", xlab = "m_agebirth")
+# Plot the log-transform of m_agebirth
+hist(log(train_data$m_agebirth), main = "Distribution of log(m_agebirth)", xlab = "log(m_agebirth)")
+
+# Plot the distribution of m_bmi
+hist(train_data$m_bmi, main = "Distribution of m_bmi", xlab = "m_bmi")
+# Plot the log-transform of m_bmi
+hist(log(train_data$m_bmi), main = "Distribution of log(m_bmi)", xlab = "log(m_bmi)")
+```
+
+Let's train a model with the log-transformed variables.
+
+```{r log_transform_model}
+lm_log_transform <- lm(zscore ~ . + log(m_agebirth) + log(m_bmi) - m_agebirth - m_bmi + c_age*c_breastf - m_work - district, data = train_data)
+
+summary(lm_log_transform)
+
+# Test error
+predicted <- predict(lm_log_transform, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_log_transform)
+BIC <- BIC(lm_log_transform)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The model didn't change much. Let's take a look at the residuals.
+
+```{r residual_plots_log_transform}
+par(mfrow=c(2,2))
+plot(lm_log_transform)
+mtext("log-transform model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Same considerations as before hold, log-transforming the skewed variables doesn't change much.
+
+# Polynomial Regression
+
+Let's try to add polynomials of degree 2 to the best model found so far.
+
+```{r polynomials_2}
+lm_polynomials2 <- lm(zscore ~ . + I(c_breastf^2) + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf + I((c_age*c_breastf)^2) - m_work - district, data = train_data)
+
+summary(lm_polynomials2)
+
+# Test error
+predicted <- predict(lm_polynomials2, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_polynomials2)
+BIC <- BIC(lm_polynomials2)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+R-squared increased, test error, AIC and BIC decreased, the model has improved. It seems that there is some non-linearity in the data that is better captured by the polynomials of degree 2.
+
+Let's take a look at the residuals.
+
+```{r residual_plots_polynomials_2}
+par(mfrow=c(2,2))
+plot(lm_polynomials2)
+mtext("polynomials model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Except for the heavy tails in the Q-Q residuals, the model seems to be fine.
+
+Let's try to add polynomials of degree 3.
+
+```{r polynomials_3}
+lm_polynomials3 <- lm(zscore ~ . + I(c_breastf^2) + I(c_breastf^3) + I(c_age^2) + I(c_age^3) + I(m_agebirth^2) +  I(m_agebirth^3) + I(m_height^2) + I(m_height^3) + I(m_bmi^2) + I(m_bmi^3) + c_age*c_breastf + I((c_age*c_breastf)^2) + I((c_age*c_breastf)^3) - m_work - district, data = train_data)
+
+summary(lm_polynomials3)
+
+# Test error
+predicted <- predict(lm_polynomials3, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_polynomials3)
+BIC <- BIC(lm_polynomials3)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The model didn't change much from the previous one, and it's more complex.
+
+Let's take a look at the residuals.
+
+```{r residual_plots_polynomials_3}
+par(mfrow=c(2,2))
+plot(lm_polynomials3)
+mtext("polynomials model", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+The same considerations as before hold also here.
+
+Let's analyze the multicollinearity of the best linear (polynomial) regression model found so far.
+
+```{r multicollinearity}
+library(car)
+vif(lm_polynomials2)
+```
+
+***how should we interpret these results? what can we do to possibly improve the model?***
+***should we modify everything to use cross-validation?***
+
+# Ridge and LASSO
+
+Let's test Ridge and LASSO (with cross-validation) using the mostly correlated variables with the response.
+
+```{r ridge_lasso_most_correlated}
+library(glmnet)
+
+X <- as.matrix(train_data[, c("c_breastf", "c_age", "m_agebirth")])
+X_test <- as.matrix(test_data[, c("c_breastf", "c_age", "m_agebirth")])
+
+y <- train_data$zscore
+y_test <- test_data$zscore
+
+# Ridge
+ridge_most_correlated <- cv.glmnet(X, y, alpha = 0, nfolds = 100)
+
+# LASSO
+lasso_most_correlated <- cv.glmnet(X, y, alpha = 1, nfolds = 100)
+
+# Test error
+predicted <- predict(ridge_most_correlated, s = "lambda.min", newx = X_test)
+MSE <- mean((predicted - y_test)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - y_test))
+
+paste("Ridge - MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+predicted <- predict(lasso_most_correlated, s = "lambda.min", newx = X_test)
+MSE <- mean((predicted - y_test)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - y_test))
+
+paste("LASSO - MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Let's compare these models with the full versions.
+
+```{r ridge_lasso_full}
+X <- as.matrix(train_data[, -1])
+X_test <- as.matrix(test_data[, -1])
+
+# Ridge
+ridge_full <- cv.glmnet(X, y, alpha = 0, nfolds = 100)
+
+# LASSO
+lasso_full <- cv.glmnet(X, y, alpha = 1, nfolds = 100)
+
+# Test error
+predicted <- predict(ridge_full, s = "lambda.min", newx = X_test)
+MSE <- mean((predicted - y_test)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - y_test))
+
+paste("Ridge - MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+predicted <- predict(lasso_full, s = "lambda.min", newx = X_test)
+MSE <- mean((predicted - y_test)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - y_test))
+
+paste("LASSO - MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Using Ridge and LASSO doesn't seem to improve the model.
+
+# Splines
+
+Let's try to use natural cubic splines to model the non-linearity in the data.
+
+First we test the model with the most correlated variables.
+
+```{r splines_most_correlated}
+library(splines)
+
+spline_most_correlated <- lm(zscore ~ ns(c_breastf, df = 3) + ns(c_age, df = 3) + ns(m_agebirth, df = 3), data = train_data)
+summary(spline_most_correlated)
+
+# Test error
+predicted <- predict(spline_most_correlated, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(spline_most_correlated)
+BIC <- BIC(spline_most_correlated)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Now we test the model with all the variables.
+
+```{r splines_full}
+spline_full <- lm(zscore ~ ns(c_gender) + ns(c_breastf, df = 3) + ns(c_age, df = 3) + ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, df = 3) + ns(m_education) + ns(m_work) + ns(region) + ns(district), data = train_data)
+summary(spline_full)
+
+# Test error
+predicted <- predict(spline_full, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(spline_full)
+BIC <- BIC(spline_full)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Let's try to remove the less significant predictors.
+
+```{r spline_remove_less_significant}
+spline_most_significant <- lm(zscore ~ ns(c_gender) + ns(c_breastf, df = 1) + ns(c_age, df = 3) + ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, df = 3) + ns(m_education) + ns(region) + ns(district), data = train_data)
+summary(spline_most_significant)
+
+# Test error
+predicted <- predict(spline_most_significant, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(spline_most_significant)
+BIC <- BIC(spline_most_significant)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Let's take the best regression spline so far (the full one) and introduce interaction between c_age and c_breastf.
+
+```{r spline_interaction}
+spline_interaction <- lm(zscore ~ ns(c_gender) + ns(c_breastf, df = 3) + ns(c_age, df = 3) + ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, df = 3) + ns(m_education) + ns(m_work) + ns(region) + ns(district) + ns(c_age*c_breastf, df = 3), data = train_data)
+summary(spline_interaction)
+
+# Test error
+predicted <- predict(spline_interaction, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(spline_interaction)
+BIC <- BIC(spline_interaction)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+There is no great improvement with respect to the full model.
+
+# Generalized Additive Models
+
+Let's try to fit a null GAM model.
+
+```{r gam_null}
+library(mgcv)
+
+gam_null <- gam(zscore ~ 1, data = train_data)
+summary(gam_null)
+
+# Test error
+predicted <- predict(gam_null, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_null)
+BIC <- BIC(gam_null)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Let's try to fit a GAM model with the most correlated variables.
+
+```{r gam_most_correlated}
+gam_most_correlated <- gam(zscore ~ s(c_breastf) + s(c_age) + s(m_agebirth), data = train_data)
+summary(gam_most_correlated)
+
+# Test error
+predicted <- predict(gam_most_correlated, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_most_correlated)
+BIC <- BIC(gam_most_correlated)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Let's take a look at the residuals.
+
+```{r gam_most_correlated_residuals}
+par(mfrow = c(1, 3))
+plot(gam_most_correlated, residuals = TRUE, pch = 20, cex = 0.5)
+mtext("GAM most correlated", side = 3, line = -2, outer = TRUE)
+par(mfrow = c(1, 1))
+```
+
+***how can we interpret the residual plots?***
+
+Let's try to fit a GAM model with all the variables.
+
+```{r gam_full}
+gam_full <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + m_work + region + district, data = train_data)
+summary(gam_full)
+
+# Test error
+predicted <- predict(gam_full, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_full)
+BIC <- BIC(gam_full)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The full GAM model performs better than the all the previous ones on the test set.
+
+Let's plot the residuals.
+
+```{r gam_full_residuals}
+par(mfrow = c(2, 3))
+plot(gam_full, residuals = TRUE, pch = 20, cex = 0.5)
+mtext("GAM full", side = 3, line = -2, outer = TRUE)
+par(mfrow = c(1, 1))
+```
+
+Let's try to remove the less significant predictors.
+
+```{r gam_remove_less_significant}
+gam_most_significant <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + region, data = train_data)
+summary(gam_most_significant)
+
+# Test error
+
+predicted <- predict(gam_most_significant, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_most_significant)
+BIC <- BIC(gam_most_significant)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The model with the most significant predictors has a lower BIC and AIC than the other GAMs, it performs quite similarly as the full GAM model on the test set and, but it has a slightly lower deviance explained. The model has improved.
+
+Let's try to fit a GAM model with interaction between c_age and c_breastf.
+
+```{r gam_interaction}
+gam_interaction <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + region + te(c_breastf, c_age), data = train_data)
+summary(gam_interaction)
+
+# Test error
+predicted <- predict(gam_interaction, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_interaction)
+BIC <- BIC(gam_interaction)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Here the interaction term is not significant, AIC and BIC are higher but the test error is similar to the previous model. No need to include the interaction term.
+
+Let's now analyze the multicollinearity of the best GAM found so far.
+
+```{r gam_vif}
+vif(gam_most_significant)
+```
+
+***??***
+
+# MARS
+
+Let's try to fit a MARS model with the most correlated predictors.
+
+```{r mars_most_correlated}
+library(earth)
+
+mars_most_correlated <- earth(zscore ~ c_breastf + c_age + m_agebirth, data = train_data)
+summary(mars_most_correlated)
+
+# Test error
+predicted <- predict(mars_most_correlated, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Let's plot the residuals
+
+```{r mars_most_correlated_residuals}
+par(mfrow = c(2, 2))
+plot(mars_most_correlated, residuals = TRUE, pch = 20, cex = 0.5)
+mtext("MARS most correlated", side = 3, line = -2, outer = TRUE)
+par(mfrow = c(1, 1))
+```
+
+***??***
+
+Let's try to fit a MARS model with all the variables.
+
+```{r mars_full}
+mars_full <- earth(zscore ~ ., data = train_data)
+summary(mars_full)
+
+# Test error
+predicted <- predict(mars_full, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Probably this is the best model found so far.
+
+Let's plot the residuals.
+
+```{r mars_full_residuals}
+par(mfrow = c(2, 2))
+plot(mars_full, residuals = TRUE, pch = 20, cex = 0.5)
+mtext("MARS full", side = 3, line = -2, outer = TRUE)
+par(mfrow = c(1, 1))
+```
+
+***??***
+
+# Bootstrap
+
+Let's try to predict the response with bootstrap samples.
+
+```{r bootstrap}
+library(boot)
+
+set.seed(123)
+
+original_data <- rnorm(nrow(train_data), mean = mean(train_data$zscore), sd = sd(train_data$zscore))
+
+statistic_function <- function(data, indices) {
+  sample_data <- data[indices]
+  return(mean(sample_data))
+}
+
+num_iterations <- nrow(test_data)
+boot_results <- boot(original_data, statistic_function, R = num_iterations)
+
+# Test error
+MSE <- mean((boot_results$t - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(boot_results$t - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+# Trees
+
+Let's try to fit a regression tree with the most correlated predictors.
+
+```{r tree_most_correlated}
+library(rpart)
+
+tree_most_correlated <- rpart(zscore ~ c_breastf + c_age + m_agebirth, data = train_data)
+summary(tree_most_correlated)
+
+# Test error
+predicted <- predict(tree_most_correlated, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Let's plot the tree.
+
+```{r tree_most_correlated_plot}
+library(rpart.plot)
+
+rpart.plot(tree_most_correlated)
+```
+
+It appears that only the c_age variable is used to split the data.
+
+Let's try to fit a regression tree with all the variables.
+
+```{r tree_full}
+tree_full <- rpart(zscore ~ ., data = train_data)
+summary(tree_full)
+
+# Test error
+predicted <- predict(tree_full, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Let's plot the tree.
+
+```{r tree_full_plot}
+rpart.plot(tree_full)
+```
+
+# Random Forest
+
+Let's try to fit a random forest model with the most correlated predictors.
+
+```{r random_forest_most_correlated}
+library(randomForest)
+
+X <- train_data[, c("c_breastf", "c_age", "m_agebirth")]
+X_test <- test_data[, c("c_breastf", "c_age", "m_agebirth")]
+y <- train_data$zscore
+y_test <- test_data$zscore
+
+set.seed(123)
+
+random_forest_most_correlated <- randomForest(zscore ~ c_breastf + c_age + m_agebirth, data = train_data, ntree = 1000, mtry = 2, importance = TRUE)
+summary(random_forest_most_correlated)
+
+# Test error
+predicted <- predict(random_forest_most_correlated, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+Let's try to fit a random forest model with all the variables.
+
+```{r random_forest_full}
+random_forest_full <- randomForest(zscore ~ . - district, data = train_data, ntree = 1000, importance = TRUE) # District has too many levels and can't be used
+summary(random_forest_full)
+
+# Test error
+predicted <- predict(random_forest_full, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+# Variable importance
+importance(random_forest_full)
+```
+
+Let's drop the variables that have a low node purity.
+
+```{r random_forest_full_drop}
+random_forest_full_drop <- randomForest(zscore ~ . - district - c_gender - m_education - m_work - region, data = train_data, ntree = 1000, importance = TRUE)
+summary(random_forest_full_drop)
+
+# Test error
+predicted <- predict(random_forest_full_drop, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+It seems that the best Random Forest model is the one with all the variables.
+
+# Conclusion
+
+The best Linear Regression model found is the one that uses all predictors except m_work and district, and considers interaction between c_breastf and c_age:
+
+* MSE:  16202.24, RMSE:  127.29 , MAE:  92.04
+* AIC:  46905 , BIC:  47029
+
+The best Polynomial Regression model found is the one that has degree 2, uses all predictors except m_work and district, and considers interaction between c_breastf and c_age:
+
+* MSE:  15389.86, RMSE:  124.06, MAE:  90.43
+* AIC:  46707, BIC:  46869
+
+Ridge and LASSO regression didn't give any interesting results.
+
+The best Spline model found is the one that uses all predictors except the least significant ones:
+
+* MSE:  15424.28, RMSE:  124.19, MAE:  90.41
+* AIC:  46736 , BIC:  46855
+
+The best GAM model found is the one that uses all predictors except the least significant ones:
+
+* MSE:  15186.43, RMSE:  123.23, MAE:  89.92
+* AIC:  46693 , BIC:  46860
+
+MARS automatically selects which predictors to maintain, the best MARS model found:
+
+* MSE:  15080.36, RMSE:  122.80, MAE:  89.64
+
+The best Random Forest model found is the one that uses all predictors, and 1000 trees:
+
+* MSE:  15125.92, RMSE:  122.99, MAE:  90.99
+
+In the end, MARS and Random Forests are the best models found for this data.
+
+***no standardization was used in the models, should we?***
+***use cross-validation everywhere?***
+***anything else to try? (step AIC, ...?...)***
