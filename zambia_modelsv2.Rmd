@@ -364,6 +364,33 @@ par(mfrow=c(1,1))
 
 Same considerations as before hold, log-transforming the skewed variables doesn't change much.
 
+Let's see if the variables we've dropped and the ones we decided to keep are really the best ones with the step AIC.
+
+```{r lm_step_AIC}
+library(MASS)
+
+test_lm <- stepAIC(lm_all, direction = "both")
+```
+
+It looks like the model with the lowest AIC is the one with c_gender + c_age + m_agebirth + m_height + m_bmi + m_education + district, let's analyze the test error of this model.
+
+```{r lm_step_AIC_test_error}
+# Test error
+predicted <- predict(test_lm, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(test_lm)
+BIC <- BIC(test_lm)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Step AIC suggests to drop m_work and c_breastf, but the best model we found so far has c_breastf and doesn't have m_work and district. Test error and both AIC and BIC are lower with the model we found "manually".
+
 # Polynomial Regression
 
 Let's try to add polynomials of degree 2 to the best model found so far.
@@ -434,11 +461,50 @@ par(mfrow=c(1,1))
 
 The same considerations as before hold also here.
 
+Let's again test the step AIC.
+
+```{r step_aic}
+# Modify the data to include the polynomials of degree 2
+train_data_polynomials2 <- cbind(train_data, c_breastf2 = I(train_data$c_breastf^2), c_age2 = I(train_data$c_age^2), m_agebirth2 = I(train_data$m_agebirth^2), m_height2 = I(train_data$m_height^2), m_bmi2 = I(train_data$m_bmi^2), c_age_x_breastf = train_data$c_age*train_data$c_breastf, c_age_x_breastf2 = I((train_data$c_age*train_data$c_breastf)^2))
+
+test_data_polynomials2 <- cbind(test_data, c_breastf2 = I(test_data$c_breastf^2), c_age2 = I(test_data$c_age^2), m_agebirth2 = I(test_data$m_agebirth^2), m_height2 = I(test_data$m_height^2), m_bmi2 = I(test_data$m_bmi^2), c_age_x_breastf = test_data$c_age*test_data$c_breastf, c_age_x_breastf2 = I((test_data$c_age*test_data$c_breastf)^2))
+
+test_polynomials2 <- stepAIC(lm(zscore ~ . - m_work - district, data = train_data_polynomials2), direction = "both")
+```
+
+Let's analyze the test error of the model found by step AIC.
+
+```{r test_error_step_aic}
+predicted <- predict(test_polynomials2, newdata = test_data_polynomials2)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(test_polynomials2)
+BIC <- BIC(test_polynomials2)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The model found by step AIC is slightly better than the previous polynomial regression with degree 2, and it suggests to discard m_agebirth and to avoid squaring m_bmi, it also maintains the predictors that were previously dropped.
+
+Let's analyze the residual plots of this model.
+
+```{r}
+par(mfrow=c(2,2))
+
+plot(test_polynomials2)
+```
+
+Nothing new to say about the residual plots.
+
 Let's analyze the multicollinearity of the best linear (polynomial) regression model found so far.
 
 ```{r multicollinearity}
 library(car)
-vif(lm_polynomials2)
+vif(test_polynomials2)
 ```
 
 ***how should we interpret these results? what can we do to possibly improve the model?***
@@ -596,6 +662,40 @@ paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
 ```
 
 There is no great improvement with respect to the full model.
+
+Let's now test the step AIC without using interaction.
+
+```{r spline_step_aic}
+test_spline <- step(spline_full, direction = "both")
+```
+
+Let's analyze the test error of the model found by step AIC.
+
+```{r spline_step_aic_test_error}
+# Test error
+predicted <- predict(test_spline, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(test_spline)
+BIC <- BIC(test_spline)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The model found by step AIC has a lower AIC and BIC than the full model. Also the test error is lower, so the model has improved.
+
+Let's analyze the residual plots.
+
+```{r spline_step_AIC_residuals}
+par(mfrow = c(2, 2))
+plot(test_spline)
+```
+
+Nothing new here.
 
 # Generalized Additive Models
 
@@ -939,17 +1039,17 @@ The best Linear Regression model found is the one that uses all predictors excep
 * MSE:  16202.24, RMSE:  127.29 , MAE:  92.04
 * AIC:  46905 , BIC:  47029
 
-The best Polynomial Regression model found is the one that has degree 2, uses all predictors except m_work and district, and considers interaction between c_breastf and c_age:
+The best Polynomial Regression model has been found with step AIC, it's the one that has degree 2, uses all predictors except m_agebirth, doesn't consider the square of m_bmi and considers interaction between c_breastf and c_age (also the square of it):
 
-* MSE:  15389.86, RMSE:  124.06, MAE:  90.43
-* AIC:  46707, BIC:  46869
+* MSE:  15358.43, RMSE:  123.93, MAE:  90.27
+* AIC:  46705 , BIC:  46855
 
 Ridge and LASSO regression didn't give any interesting results.
 
-The best Spline model found is the one that uses all predictors except the least significant ones:
+The best Spline model found is the one found with step AIC, it's the one that uses all predictors except m_work:
 
-* MSE:  15424.28, RMSE:  124.19, MAE:  90.41
-* AIC:  46736 , BIC:  46855
+* MSE:  15341.83, RMSE:  123.86, MAE:  90.95
+* AIC:  46705 , BIC:  46836
 
 The best GAM model found is the one that uses all predictors except the least significant ones:
 
