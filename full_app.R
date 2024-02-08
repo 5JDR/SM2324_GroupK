@@ -25,6 +25,7 @@ ui <- dashboardPage(
                #menuSubItem("Breast-feedings", tabName = "Breast-feedings"),
                menuSubItem("Breast-feedings", tabName = "zscoreBreastfMarginalPlot"),
                menuSubItem("Age Analysis", tabName = "zscoreAgeMarginalPlot"),
+               menuSubItem("Mother Height Analysis", tabName = "mheightMarginalPlot"),
                
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
@@ -110,6 +111,16 @@ ui <- dashboardPage(
               fluidRow(
                 column(8, plotlyOutput("scatterPlot_2")),
                 column(4, plotlyOutput("hist_zscore_2",width = '250px'))
+              ) 
+      ),
+      tabItem(tabName = "mheightMarginalPlot",
+              
+              fluidRow(
+                column(8, plotlyOutput("hist_m_height"))
+              ),
+              fluidRow(
+                column(8, plotlyOutput("scatterPlot_3")),
+                column(4, plotlyOutput("hist_zscore_3",width = '250px'))
               ) 
       ),
       
@@ -339,6 +350,48 @@ server <- function(input, output) {
      
      hist_zscore_2
    })
+   
+   #######################################################################################################
+   
+   
+   # Marginal Plot of zscore and m_height
+   output$scatterPlot_3 <- renderPlotly({
+     # Use the filtered data for the scatter plot
+     scatterPlot_3 <- plot_ly(train_data, x = ~m_height, y = ~zscore, type = 'scatter', mode = 'markers', showlegend = F) %>%
+       layout(title = '',
+              xaxis = list(title = 'Mother height'),
+              yaxis = list(title = 'zscore'),
+              legend = list(c = 0.1, y = 0.9))
+     fit <- lm(zscore ~ m_height, data = train_data)
+     scatterPlot_3 %>% 
+     add_trace(x = train_data$m_height, y = fitted(fit), mode = "lines", name = "Regression Line")
+   })
+   
+   # Histogram for m_height
+   output$hist_m_height <- renderPlotly({
+     hist_m_height <- plot_ly(train_data, x = ~m_height, type = 'histogram', histnorm = "probability",
+                               marker = list(
+                                 color = 'rgba(102,194,165,0.5)',
+                                 line = list(color = 'black', width = 2)  # Adding border
+                               )) %>%
+       layout(showlegend = FALSE, 
+              xaxis = list(title = ""),
+              yaxis = list(title = "Relative Frequency", range = c(0, 0.25)))
+     
+     hist_m_height
+   })
+   
+   # Histogram for zscore
+   output$hist_zscore_3 <- renderPlotly({
+     hist_zscore_3 <- plot_ly(train_data, y = ~zscore, type = 'histogram', histnorm = "probability",
+                            marker = list(color = 'rgba(252,141,98,0.5)',line = list(color = 'black', width = 2))) %>%
+       layout(showlegend = FALSE, 
+              xaxis = list(title = "Relative Frequency", range = c(0, 0.075)),
+              yaxis = list(title = ""))
+     
+     hist_zscore_3
+   })
+   
   
   # Predictive Model Building - Placeholder for Implementation
   output$modelBuilding <- renderPrint({
