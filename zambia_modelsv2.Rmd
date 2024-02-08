@@ -391,6 +391,57 @@ paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
 
 Step AIC suggests to drop m_work and c_breastf, but the best model we found so far has c_breastf and doesn't have m_work and district. Test error and both AIC and BIC are lower with the model we found "manually".
 
+Since c_breastf has a strange pattern, let's try to cut the values that are not 0, 1 or 2 to regularize it.
+
+```{r cut_c_breastf}
+train_cbreastf <- train_data[train_data$c_breastf != 0 & train_data$c_breastf != 1 & train_data$c_breastf != 2,] 
+
+par(mfrow=c(1,2))
+hist(train_data$c_breastf, probability = TRUE, breaks = 15)
+hist(train_cbreastf$c_breastf, probability = TRUE, breaks = 15)
+```
+
+Now the distribution is regular, but sometimes removing many rows from a dataset can be harmful, for this reason we decided to mantain the original dataset. Instead, it may be better to assign the value 0 to all the value of c_breastf that are 0, 1 or 2, and assign 1 otherwise.
+
+```{r c_breastf_cat}
+train_data_cat <- train_data
+test_data_cat <- test_data
+train_data_cat$c_breastf <- ifelse(train_data$c_breastf == 0 | train_data$c_breastf == 1 | train_data$c_breastf == 2, 0, 1)
+test_data_cat$c_breastf <- ifelse(test_data$c_breastf == 0 | test_data$c_breastf == 1 | test_data$c_breastf == 2, 0, 1)
+train_data_cat$c_breastf <- as.factor(train_data_cat$c_breastf)
+test_data_cat$c_breastf <- as.factor(test_data_cat$c_breastf)
+```
+
+```{r lm_interaction2}
+lm_interaction2_cat <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+summary(lm_interaction2)
+```
+
+```{r test_error_interaction2_cat}
+predicted <- predict(lm_interaction2_cat, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_interaction2_cat)
+BIC <- BIC(lm_interaction2_cat)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The model has improved by considering the categorical version of c_breastf.
+
+```{r residual_plots_interaction2}
+par(mfrow=c(2,2))
+plot(lm_interaction2_cat)
+mtext("interaction model 2", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+
+Nothing new here.
+
 # Polynomial Regression
 
 Let's try to add polynomials of degree 2 to the best model found so far.
@@ -507,7 +558,56 @@ library(car)
 vif(test_polynomials2)
 ```
 
-***how should we interpret these results? what can we do to possibly improve the model?***
+Because of the really high GVIF value we decided to drop some variables: c_breastf, m_height, c_age2, m_height2.
+
+```{r lm_polynomials2_gvif}
+lm_polynomials2_gvif <- lm(zscore ~ c_gender + c_age + m_bmi + m_education + 
+    region + c_breastf + m_agebirth2, data = train_data_polynomials2)
+summary(lm_polynomials2_gvif)
+```
+
+```{r test_error_polynomials_2_gvif}
+predicted <- predict(lm_polynomials2_gvif, newdata = test_data_polynomials2)
+MSE <- mean((predicted - test_data_polynomials2$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_polynomials2$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_polynomials2_gvif)
+BIC <- BIC(lm_polynomials2_gvif)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+As we can see, this model performs worse than the previous one.
+
+Now let's try by using the categorical version of c_breastf on the best polynomial regression found.
+
+```{r lm_polynomials2_cat}
+lm_polynomials2_cat <- lm(zscore ~ c_gender + c_breastf + c_age + m_height + m_bmi + m_education + 
+    region + I(c_age^2) + I(m_agebirth^2) + I(m_height^2) + 
+    c_age*c_breastf, data = train_data_cat)
+
+summary(lm_polynomials2_cat)
+```
+
+```{r test_error_polynomials_2_cat}
+predicted <- predict(lm_polynomials2_cat, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_polynomials2_cat)
+BIC <- BIC(lm_polynomials2_cat)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+This model behave slightly better than the previous one, and it has lower BIC and AIC, so we will keep it as the best one.
+
 ***should we modify everything to use cross-validation?***
 
 # Ridge and LASSO
@@ -696,6 +796,12 @@ plot(test_spline)
 ```
 
 Nothing new here.
+
+Let's test the best spline model with the categorical version of c_breastf.
+
+```{r spline_cat}
+spline_cat <- lm(zscore 
+```
 
 # Generalized Additive Models
 
@@ -1034,15 +1140,15 @@ It seems that the best Random Forest model is the one with all the variables.
 
 # Conclusion
 
-The best Linear Regression model found is the one that uses all predictors except m_work and district, and considers interaction between c_breastf and c_age:
+The best Linear Regression model found is the one that uses all predictors except m_work and district, and considers interaction between c_breastf (the categorical version of it) and c_age:
 
-* MSE:  16202.24, RMSE:  127.29 , MAE:  92.04
-* AIC:  46905 , BIC:  47029
+* MSE:  15443.93 , RMSE:  124.27 , MAE:  90.28
+* AIC:  46758 , BIC:  46882
 
-The best Polynomial Regression model has been found with step AIC, it's the one that has degree 2, uses all predictors except m_agebirth, doesn't consider the square of m_bmi and considers interaction between c_breastf and c_age (also the square of it):
+The best Polynomial Regression model found with step AIC, it's the one that has degree 2, uses all predictors except m_agebirth, doesn't consider the square of m_bmi and considers interaction between c_breastf and c_age and uses the categorical version of c_breastf:
 
-* MSE:  15358.43, RMSE:  123.93, MAE:  90.27
-* AIC:  46705 , BIC:  46855
+* MSE:  15337.69, RMSE:  123.84, MAE:  90.21
+* AIC:  46696 , BIC:  46833
 
 Ridge and LASSO regression didn't give any interesting results.
 
