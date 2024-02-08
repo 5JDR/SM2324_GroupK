@@ -26,6 +26,8 @@ ui <- dashboardPage(
                menuSubItem("Breast-feedings", tabName = "zscoreBreastfMarginalPlot"),
                menuSubItem("Age Analysis", tabName = "zscoreAgeMarginalPlot"),
                menuSubItem("Mother Height Analysis", tabName = "mheightMarginalPlot"),
+               menuSubItem("Mother BMI Analysis", tabName = "mbmiMarginalPlot"),
+               menuSubItem("Mother Work Analysis", tabName = "mworkAnalysis"),
                
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
@@ -123,6 +125,27 @@ ui <- dashboardPage(
                 column(4, plotlyOutput("hist_zscore_3",width = '250px'))
               ) 
       ),
+      
+      tabItem(tabName= "mbmiMarginalPlot",
+              fluidRow(
+                column(8, plotlyOutput("hist_m_bmi"))
+              ),
+              fluidRow(
+                column(8, plotlyOutput("scatterPlot_4")),
+                column(4, plotlyOutput("hist_zscore_4",width = '250px'))
+              ) 
+      ),
+      
+      tabItem(tabName = "mworkAnalysis",
+              radioButtons("working_select", "Select:",
+                           choices = list("Both" = "both",
+                                          "Not working" = "0",
+                                          "Working" = "1"),
+                           selected = "both"),
+              plotlyOutput("mworkAnalysis", width = "100%", height = "800px"),
+      ),
+      
+      
       
       tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
@@ -398,6 +421,74 @@ server <- function(input, output) {
     # Placeholder for Predictive Model Building logic
     # Actual implementation will go here
   })
+  
+  #########################################################################################
+  
+  # Marginal Plot of mother bmi and zscore
+  output$scatterPlot_4 <- renderPlotly({
+    # Use the filtered data for the scatter plot
+    scatterPlot_4 <- plot_ly(train_data, x = ~m_bmi, y = ~zscore, type = 'scatter', mode = 'markers', showlegend = F) %>%
+      layout(title = '',
+             xaxis = list(title = 'Mother BMI'),
+             yaxis = list(title = 'zscore'),
+             legend = list(c = 0.1, y = 0.9))
+    fit <- lm(zscore ~ m_bmi, data = train_data)
+    scatterPlot_4 %>% 
+      add_trace(x = train_data$m_bmi, y = fitted(fit), mode = "lines", name = "Regression Line")
+  })
+  
+  # Histogram for m_bmi
+  output$hist_m_bmi <- renderPlotly({
+    hist_m_bmi <- plot_ly(train_data, x = ~m_bmi, type = 'histogram', histnorm = "probability",
+                          marker = list(
+                            color = 'rgba(102,194,165,0.5)',
+                            line = list(color = 'black', width = 2)  # Adding border
+                          )) %>%
+      layout(showlegend = FALSE, 
+             xaxis = list(title = ""),
+             yaxis = list(title = "Relative Frequency", range = c(0, 0.25)))
+    
+    hist_m_bmi
+  })
+  
+  # Histogram for zscore
+  output$hist_zscore_4 <- renderPlotly({
+    hist_zscore_4 <- plot_ly(train_data, y = ~zscore, type = 'histogram', histnorm = "probability",
+                             marker = list(color = 'rgba(252,141,98,0.5)',line = list(color = 'black', width = 2))) %>%
+      layout(showlegend = FALSE, 
+             xaxis = list(title = "Relative Frequency", range = c(0, 0.075)),
+             yaxis = list(title = ""))
+    
+    hist_zscore_4
+  })
+  
+  ########################################################################################
+  
+  output$mworkAnalysis <- renderPlotly({
+    # Filter data based on selected gender
+    if (input$working_select == "0") {  # Not working
+      data_to_plot <- subset(train_data, m_work == 0)
+      bar_color <- "pink"  # Set color to pink for females
+    } else if (input$working_select == "1") {  # Working
+      data_to_plot <- subset(train_data, m_work == 1)
+      bar_color <- "blue"  # Choose a different color for males
+    } else {  # Both genders
+      data_to_plot <- train_data
+      bar_color <- "grey"  # Neutral color for both genders
+    }
+    
+    # Plot relative frequency histogram
+    plot_ly(data_to_plot, x = ~zscore, type = 'histogram', histnorm = "probability",
+            marker = list(
+              color = bar_color,
+              opacity = 0.6,
+              line = list(color = 'black', width = 2)  # Add border with specified color and width
+            )) %>%
+      layout(title = 'Relative Frequency Histogram of zscore by working status',
+             xaxis = list(title = 'zscore'),
+             yaxis = list(title = 'Relative Frequency'))
+  })
+  
   
   
   # Implement regional analysis
