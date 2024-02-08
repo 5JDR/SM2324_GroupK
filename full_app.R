@@ -24,6 +24,7 @@ ui <- dashboardPage(
                
                #menuSubItem("Breast-feedings", tabName = "Breast-feedings"),
                menuSubItem("Breast-feedings", tabName = "zscoreBreastfMarginalPlot"),
+               menuSubItem("Age Analysis", tabName = "zscoreAgeMarginalPlot"),
                
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
@@ -89,15 +90,26 @@ ui <- dashboardPage(
                    There isn't a substantial difference between the two sub-populations,
                    the zscore distribution seems quite balanced for males and females.</p>")),
       #tabItem(tabName = "Breast-feedings", plotlyOutput("cBreastfHist",height = "800px")),
+      
       tabItem(tabName = "zscoreBreastfMarginalPlot",
               checkboxInput("hideZeroBreastf", "Hide Breast-feedings <= 2", FALSE),
-              
               fluidRow(
                 column(8, plotlyOutput("hist_c_breastf"))
               ),
               fluidRow(
                 column(8, plotlyOutput("scatterPlot")),
                 column(4, plotlyOutput("hist_zscore",width = '250px'))
+              ) 
+      ),
+      
+      tabItem(tabName = "zscoreAgeMarginalPlot",
+              
+              fluidRow(
+                column(8, plotlyOutput("hist_c_age"))
+              ),
+              fluidRow(
+                column(8, plotlyOutput("scatterPlot_2")),
+                column(4, plotlyOutput("hist_zscore_2",width = '250px'))
               ) 
       ),
       
@@ -290,7 +302,43 @@ server <- function(input, output) {
      hist_zscore
    })
   
-  
+   # Marginal Plot of zscore and c_age
+   output$scatterPlot_2 <- renderPlotly({
+     # Use the filtered data for the scatter plot
+     scatterPlot_2 <- plot_ly(train_data, x = ~c_age, y = ~zscore, type = 'scatter', mode = 'markers', showlegend = F) %>%
+       layout(title = '',
+              xaxis = list(title = 'age-months', range = c(0, 48)),
+              yaxis = list(title = 'zscore'),
+              legend = list(c = 0.1, y = 0.9))
+     fit <- lm(zscore ~ c_age, data = train_data)
+     scatterPlot_2 %>% 
+       add_trace(x = train_data$c_age, y = fitted(fit), mode = "lines", name = "Regression Line")
+   })
+   
+   # Histogram for c_age
+   output$hist_c_age <- renderPlotly({
+     hist_c_age <- plot_ly(train_data, x = ~c_age, type = 'histogram', histnorm = "probability",
+                               marker = list(
+                                 color = 'rgba(102,194,165,0.5)',
+                                 line = list(color = 'black', width = 2)  # Adding border
+                               )) %>%
+       layout(showlegend = FALSE, 
+              xaxis = list(title = ""),
+              yaxis = list(title = "Relative Frequency", range = c(0, 0.25)))
+     
+     hist_c_age
+   })
+   
+   # Histogram for zscore
+   output$hist_zscore_2 <- renderPlotly({
+     hist_zscore_2 <- plot_ly(train_data, y = ~zscore, type = 'histogram', histnorm = "probability",
+                            marker = list(color = 'rgba(252,141,98,0.5)',line = list(color = 'black', width = 2))) %>%
+       layout(showlegend = FALSE, 
+              xaxis = list(title = "Relative Frequency"),
+              yaxis = list(title = ""))
+     
+     hist_zscore_2
+   })
   
   # Predictive Model Building - Placeholder for Implementation
   output$modelBuilding <- renderPrint({
