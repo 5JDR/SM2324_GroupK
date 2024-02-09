@@ -1267,7 +1267,3 @@ The best Random Forest model found is the one that uses all predictors, and 1000
 * MSE:  15125.92, RMSE:  122.99, MAE:  90.99
 
 In the end, MARS and Random Forests are the best models found for this data.
-
-***no standardization was used in the models, should we?***
-***use cross-validation everywhere?***
-***anything else to try? (step AIC, ...?...)***
