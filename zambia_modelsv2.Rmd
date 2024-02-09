@@ -442,6 +442,37 @@ par(mfrow=c(1,1))
 
 Nothing new here.
 
+Let's analyze the vif of the best linear model found.
+
+```{r vif_lm}
+library(car)
+
+vif(lm_interaction2_cat)
+```
+
+Let's try to remove interaction terms, c_breastf and c_age.
+
+```{r lm_interaction2_vif}
+lm_interaction2_vif <- lm(zscore ~ . - c_age - c_breastf - m_work - district, data = train_data)
+summary(lm_interaction2_vif)
+```
+
+```{r test_error_interaction2_vif}
+predicted <- predict(lm_interaction2_vif, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(lm_interaction2_vif)
+BIC <- BIC(lm_interaction2_vif)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The test error worsens, so we will keep the previous model, even tho there is some evidence of multicollinearity.
+
 # Polynomial Regression
 
 Let's try to add polynomials of degree 2 to the best model found so far.
