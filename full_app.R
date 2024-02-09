@@ -32,9 +32,9 @@ ui <- dashboardPage(
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
       menuItem("Predictive Model Building", tabName = "modelBuilding", icon = icon("cogs"),
-               menuSubItem("Model Overview", tabName = "modelOverview"),
-               menuSubItem("Model Performance", tabName = "modelPerformance"),
-               menuSubItem("Model Comparison", tabName = "modelComparison")
+               menuSubItem("Linear Model", tabName = "linearmodel"),
+               menuSubItem("Polynomial Model", tabName = "polynomialmodelc"),
+               menuSubItem("Gam Model", tabName = "gammodel")
       )
     )),
   dashboardBody(
@@ -150,8 +150,16 @@ ui <- dashboardPage(
       tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
       # Add tabItems for model building
-      tabItem(tabName = "subItem1", verbatimTextOutput("subItem1")),
-      tabItem(tabName = "subItem2", verbatimTextOutput("subItem2"))
+      tabItem(tabName = "linearmodel",
+              selectInput("modelStep", "Select Model Building Step:",
+                          choices = list("Step 1: Initial Model" = "step1",
+                                         "Step 2: High-correlation variables" = "step2",
+                                         "Step 3: Saturated Model" = "step3",
+                                         "Step 4: Final Model" = "step4")),
+              
+              uiOutput("linearModelOutput")
+              
+      )
       
       
       # More tabItems can be added for additional sections
@@ -175,29 +183,36 @@ server <- function(input, output) {
   
   #cast of zscore to integer
   train_data$zscore <- as.integer(train_data$zscore)
+  test_data$zscore <- as.integer(test_data$zscore)
   
   #factorize gender
   train_data$c_gender <- as.factor(train_data$c_gender)
+  test_data$c_gender <- as.factor(test_data$c_gender)
   
   #cast c_breastf as integer
   train_data$c_breastf <- as.integer(train_data$c_breastf)
-  
+  test_data$c_breastf <- as.integer(test_data$c_breastf)
   #cast c_age as integer
   train_data$c_age <- as.integer(train_data$c_age)
+  test_data$c_age <- as.integer(test_data$c_age)
   
   #NOTE: to have the month of birth in m_agebirth calculate: decimal_part * 12
   
   #factorize m_education
   train_data$m_education <- as.factor(train_data$m_education)
+  test_data$m_education <- as.factor(test_data$m_education)
   
   #factorize m_work
   train_data$m_work <- as.factor(train_data$m_work)
+  test_data$m_work <- as.factor(test_data$m_work)
   
   #factorize region
   train_data$region <- as.factor(train_data$region)
+  test_data$region <- as.factor(test_data$region)
   
   #factorize district
   train_data$district <- as.factor(train_data$district)
+  test_data$district <- as.factor(test_data$district)
   
  
   
@@ -543,7 +558,163 @@ server <- function(input, output) {
   # output$modelOutput <- renderPrint({
   #   # Model building logic
   # })
+  # Define renderPrint for modelStep1 outside of any other reactive context
+  output$modelStep1 <- renderPrint({
+    # Fit the null model
+    lm_null <- lm(zscore ~ 1, data = train_data)
+    
+    # Display the summary of the null model
+    summary(lm_null)
+  })
+  
+  # Calculate and display test error metrics
+  output$modelTestError <- renderText({
+    # Predict on test data
+    lm_null <- lm(zscore ~ 1, data = train_data)
+    predicted <- predict(lm_null, newdata = test_data)
+    
+    # Calculate errors
+    MSE <- mean((predicted - test_data$zscore)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - test_data$zscore))
+    
+    # Create a text output
+    paste("Test Set Results - MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+  })
+  
+  output$qqPlotNullModel <- renderPlot({
+    # Fit the null model
+    lm_null <- lm(zscore ~ 1, data = train_data)
+    
+    # Generate Q-Q plot for the null model
+    qqnorm(resid(lm_null))
+    qqline(resid(lm_null), col = "red")
+  })
+  #######################################################
+  
+  output$modelStep2 <- renderPrint({
+    # Fit the linear model with selected variables
+    lm_all_correlated <- lm(zscore ~ c_breastf + c_age + m_height, data = train_data)
+    
+    # Display the summary of the model
+    model_summary <- summary(lm_all_correlated)
+    print(model_summary)
+    
+    # Predict on test data and calculate errors
+    predicted <- predict(lm_all_correlated, newdata = test_data)
+    MSE <- mean((predicted - test_data$zscore)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - test_data$zscore))
+    
+    # Calculate AIC and BIC
+    AIC_value <- AIC(lm_all_correlated)
+    BIC_value <- BIC(lm_all_correlated)
+    
+    # Display test error metrics and AIC, BIC
+    cat("\nTest Set Error Metrics:\n")
+    cat("MSE: ", MSE, "\nRMSE: ", RMSE, "\nMAE: ", MAE, "\n")
+    cat("\nModel Criteria:\n")
+    cat("AIC: ", AIC_value, "\nBIC: ", BIC_value, "\n")
+  })
+  
+  output$residualsPlotStep2 <- renderPlot({
+    # Fit the model (ensure this is done outside of renderPlot if it's used elsewhere)
+    lm_all_correlated <- lm(zscore ~ c_breastf + c_age + m_height, data = train_data)
+    
+    # Set up the plot area for a 2x2 grid of plots
+    par(mfrow = c(2, 2))
+    
+    # Generate diagnostic plots
+    plot(lm_all_correlated)
+    
+    # Add a main title for all plots
+    mtext("All Correlated Variables Model", side = 3, line = -2, outer = TRUE)
+  })
+  
+  #########################################################################################
+  output$modelStep3 <- renderPrint({
+    # Fit the full model with all variables
+    lm_full <- lm(zscore ~ ., data = train_data)
+    
+    # Display the summary of the full model
+    print(summary(lm_full))
+    
+    # Predict on test data and calculate errors
+    predicted_full <- predict(lm_full, newdata = test_data)
+    MSE_full <- mean((predicted_full - test_data$zscore)^2)
+    RMSE_full <- sqrt(MSE_full)
+    MAE_full <- mean(abs(predicted_full - test_data$zscore))
+    
+    # Calculate AIC and BIC
+    AIC_value_full <- AIC(lm_full)
+    BIC_value_full <- BIC(lm_full)
+    
+    # Display test error metrics
+    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("MSE: ", MSE_full, "\nRMSE: ", RMSE_full, "\nMAE: ", MAE_full, "\n")
+    cat("\nModel Criteria (Full Model):\n")
+    cat("AIC: ", AIC_value_full, "\nBIC: ", BIC_value_full, "\n")
+    
+  })
+ 
+  output$residualsPlotStep3 <- renderPlot({
+    # Fit the full model with all variables
+    lm_full <- lm(zscore ~ c_breastf + c_age + m_height + c_gender + m_education + m_work + region + district, data = train_data)
+    
+    # Set up the plot area for a 2x2 grid of plots
+    par(mfrow = c(2, 2))
+    
+    # Generate diagnostic plots
+    plot(lm_full)
+    
+    # Add a main title for all plots
+    mtext("Full Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
+    
+    # Reset plot settings to default (optional, but good practice)
+    par(mfrow = c(1, 1))
+  })
+  
+  ################################################################################
+   
+  
+  output$linearModelOutput <- renderUI({
+    step <- input$modelStep
+    
+    if (step == "step1") {
+      tagList(
+        HTML("<p>Step 1: Initial Model (Null Model)</p>
+           <p>In this step, we start with a null model. A null model predicts the outcome (zscore) using only the intercept. This model doesn't include any predictors and serves as a baseline to compare against more complex models. It helps us understand the mean of the response variable when no predictors are included.</p>"),
+        verbatimTextOutput("modelStep1"),
+        verbatimTextOutput("modelTestError"),
+        plotOutput("qqPlotNullModel")
+        
+      )
+     
+    } else if (step == "step2") {
+      tagList(
+        HTML("<p>Step 2: Correlated Variables Model</p>
+           <p>In this step, we consider a linear model that includes variables which are highly correlated with 'zscore': 'c_breastf', 'c_age', and 'm_height'. This model helps us understand the combined influence of these variables on 'zscore'.</p>"),
+        verbatimTextOutput("modelStep2"),
+        plotOutput("residualsPlotStep2", width = "100%", height = "600px") 
+      )
+    } else if (step == "step3") {
+      tagList(
+        HTML("<p>Step 3: Full Model</p>
+           <p>In this step, we consider a full linear model that includes all available variables. This model helps us understand the combined influence of all variables on 'zscore' and to assess the overall fit of the model.</p>"),
+        verbatimTextOutput("modelStep3"),
+        plotOutput("residualsPlotStep3", width = "100%", height = "600px")
+      )
+    }else if (step == "step4") {
+      tagList(
+        HTML("<p>Step 4: Explanation of final model...</p>"),
+        verbatimTextOutput("modelStep4")
+      )
+    }
+  })
+  
 }
+
+
 
 # Run the application
 shinyApp(ui = ui, server = server)
