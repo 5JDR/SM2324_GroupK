@@ -414,7 +414,7 @@ test_data_cat$c_breastf <- as.factor(test_data_cat$c_breastf)
 
 ```{r lm_interaction2}
 lm_interaction2_cat <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
-summary(lm_interaction2)
+summary(lm_interaction2_cat)
 ```
 
 ```{r test_error_interaction2_cat}
@@ -800,8 +800,30 @@ Nothing new here.
 Let's test the best spline model with the categorical version of c_breastf.
 
 ```{r spline_cat}
-spline_cat <- lm(zscore 
+spline_cat <- lm(zscore ~ ns(c_gender) + ns(c_breastf) + ns(c_age, df = 3) + 
+    ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, 
+    df = 3) + ns(m_education) + ns(region) + ns(district), data=train_data_cat)
+summary(spline_cat)
 ```
+
+Let's see the test error.
+
+```{r spline_cat_test_error}
+# Test error
+predicted <- predict(spline_cat, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(spline_cat)
+BIC <- BIC(spline_cat)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The test error is very close to the previous one, but the AIC and BIC are slightly lower, so we keep this model as the best one.
 
 # Generalized Additive Models
 
@@ -934,47 +956,32 @@ paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
 
 Here the interaction term is not significant, AIC and BIC are higher but the test error is similar to the previous model. No need to include the interaction term.
 
-Let's now analyze the multicollinearity of the best GAM found so far.
+Let's now test the categorical version of c_breastf.
 
-```{r gam_vif}
-vif(gam_most_significant)
+```{r gam_c_breastf_categorical}
+gam_c_breastf_cat <- gam(zscore ~ c_gender + c_breastf + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + region, data = train_data_cat)
+summary(gam_c_breastf_cat)
+
+# Test error
+predicted <- predict(gam_c_breastf_cat, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_c_breastf_cat)
+BIC <- BIC(gam_c_breastf_cat)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
 ```
 
-***??***
+Here the model is pretty much the same as the one with the continuous version of c_breastf. The test error is slightly higher, but the AIC and BIC are lower. We can keep the continuous version of c_breastf as the best model.
 
 # MARS
 
-Let's try to fit a MARS model with the most correlated predictors.
-
-```{r mars_most_correlated}
-library(earth)
-
-mars_most_correlated <- earth(zscore ~ c_breastf + c_age + m_agebirth, data = train_data)
-summary(mars_most_correlated)
-
-# Test error
-predicted <- predict(mars_most_correlated, newdata = test_data)
-MSE <- mean((predicted - test_data$zscore)^2)
-RMSE <- sqrt(MSE)
-MAE <- mean(abs(predicted - test_data$zscore))
-
-paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
-```
-
-Let's plot the residuals
-
-```{r mars_most_correlated_residuals}
-par(mfrow = c(2, 2))
-plot(mars_most_correlated, residuals = TRUE, pch = 20, cex = 0.5)
-mtext("MARS most correlated", side = 3, line = -2, outer = TRUE)
-par(mfrow = c(1, 1))
-```
-
-***??***
-
-Let's try to fit a MARS model with all the variables.
-
 ```{r mars_full}
+library(earth)
 mars_full <- earth(zscore ~ ., data = train_data)
 summary(mars_full)
 
@@ -999,6 +1006,23 @@ par(mfrow = c(1, 1))
 ```
 
 ***??***
+
+Let's try the categorical version of c_breastf.
+
+```{r mars_c_breastf_categorical}
+mars_c_breastf_cat <- earth(zscore ~ ., data = train_data_cat)
+summary(mars_c_breastf_cat)
+
+# Test error
+predicted <- predict(mars_c_breastf_cat, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+```
+
+The two models behave similarly on the test set, but the continuous version of c_breastf has a lower Rsq, so we keep it as the best one.
 
 # Bootstrap
 
@@ -1138,6 +1162,26 @@ paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
 
 It seems that the best Random Forest model is the one with all the variables.
 
+Let's try the categorical version of c_breastf.
+
+```{r random_forest_full_categorical}
+random_forest_full_categorical <- randomForest(zscore ~ . - district, data = train_data_cat, ntree = 1000, importance = TRUE)
+summary(random_forest_full_categorical)
+
+# Test error
+predicted <- predict(random_forest_full_categorical, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+# Variable importance
+importance(random_forest_full_categorical)
+```
+
+Using the continuous version of c_breastf seems to give a better model, so we will keep the previous version.
+
 # Conclusion
 
 The best Linear Regression model found is the one that uses all predictors except m_work and district, and considers interaction between c_breastf (the categorical version of it) and c_age:
@@ -1152,10 +1196,10 @@ The best Polynomial Regression model found with step AIC, it's the one that has 
 
 Ridge and LASSO regression didn't give any interesting results.
 
-The best Spline model found is the one found with step AIC, it's the one that uses all predictors except m_work:
+The best Spline model found is the one found with step AIC, it's the one that uses all predictors except m_work and uses the categorical version of c_breastf:
 
-* MSE:  15341.83, RMSE:  123.86, MAE:  90.95
-* AIC:  46705 , BIC:  46836
+* MSE:  15345.08, RMSE:  123.87, MAE:  90.78
+* AIC:  46703, BIC:  46822
 
 The best GAM model found is the one that uses all predictors except the least significant ones:
 
