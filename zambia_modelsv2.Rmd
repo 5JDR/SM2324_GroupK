@@ -1018,6 +1018,45 @@ paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
 
 Here the model is pretty much the same as the one with the continuous version of c_breastf. The test error is slightly higher, but the AIC and BIC are lower. We can keep the continuous version of c_breastf as the best model.
 
+Since in every gam the m_height and m_bmi predictors have low edf for the significance of smooth terms, we can try to make them linear.
+
+```{r gam_linear_height_bmi}
+gam_linear_height_bmi <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + m_height + m_bmi + m_education + region, data = train_data)
+summary(gam_linear_height_bmi)
+
+# Test error
+predicted <- predict(gam_linear_height_bmi, newdata = test_data)
+MSE <- mean((predicted - test_data$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(gam_linear_height_bmi)
+BIC <- BIC(gam_linear_height_bmi)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+Not much different from the previous model.
+
+Let's analyze the residual plots.
+
+```{r gam_linear_height_bmi_residuals}
+par(mfrow = c(1, 3))
+plot(gam_linear_height_bmi, pch = 20, cex = 0.5)
+mtext("GAM linear height and bmi", side = 3, line = -2, outer = TRUE)
+par(mfrow = c(1, 1))
+```
+
+Let's perform an ANOVA test.
+
+```{r gam_linear_height_bmi_anova}
+anova(gam_null, gam_most_significant, gam_linear_height_bmi, test = "F")
+```
+
+The linearization of predictors does not result in a statistically significant change in deviance, so we will keep the GAM without the least significant predictors as the best GAM.
+
 # MARS
 
 ```{r mars_full}
