@@ -904,7 +904,8 @@ Let's take a look at the residuals.
 
 ```{r gam_most_correlated_residuals}
 par(mfrow = c(1, 3))
-plot(gam_most_correlated, residuals = TRUE, pch = 20, cex = 0.5)
+# Without background dots
+plot(gam_most_correlated, pch = 20, cex = 0.5)
 mtext("GAM most correlated", side = 3, line = -2, outer = TRUE)
 par(mfrow = c(1, 1))
 ```
@@ -937,10 +938,18 @@ Let's plot the residuals.
 
 ```{r gam_full_residuals}
 par(mfrow = c(2, 3))
-plot(gam_full, residuals = TRUE, pch = 20, cex = 0.5)
+plot(gam_full, pch = 20, cex = 0.5)
 mtext("GAM full", side = 3, line = -2, outer = TRUE)
 par(mfrow = c(1, 1))
 ```
+
+the residual plots of this model suggest to drop m_height and m_bmi, but we would end up having the previous model which has bad residual plots, let's do an ANOVA test.
+
+```{r gam_anova}
+anova(gam_null, gam_most_correlated, gam_full)
+```
+
+Using more variables seems to be the best choice, the model with more predictors has also lower AIC, BIC and test errors.
 
 Let's try to remove the less significant predictors.
 
@@ -1054,33 +1063,6 @@ paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
 ```
 
 The two models behave similarly on the test set, but the continuous version of c_breastf has a lower Rsq, so we keep it as the best one.
-
-# Bootstrap
-
-Let's try to predict the response with bootstrap samples.
-
-```{r bootstrap}
-library(boot)
-
-set.seed(123)
-
-original_data <- rnorm(nrow(train_data), mean = mean(train_data$zscore), sd = sd(train_data$zscore))
-
-statistic_function <- function(data, indices) {
-  sample_data <- data[indices]
-  return(mean(sample_data))
-}
-
-num_iterations <- nrow(test_data)
-boot_results <- boot(original_data, statistic_function, R = num_iterations)
-
-# Test error
-MSE <- mean((boot_results$t - test_data$zscore)^2)
-RMSE <- sqrt(MSE)
-MAE <- mean(abs(boot_results$t - test_data$zscore))
-
-paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
-```
 
 # Trees
 
