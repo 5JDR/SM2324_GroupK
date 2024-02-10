@@ -22,7 +22,7 @@ SHINYAPP
                                    - VIF  [ SANDRO ]
                                     
 4) Linear and GAM Models Step 6 --> Ridge and Lasso   [ LUCA ]
-5) Linear and GAM Models Step 7 --> Splines
-6) Linear and GAM Models Step 8 --> GAMs
+5) Linear and GAM Models Step 7 --> Splines  [ PRANAY ]
+6) Linear and GAM Models Step 8 --> GAMs  [ PRANAY ]
 7) Other models (find a better name!!!) --> -MARS, trees , random forest   [ LUCA ]
-8) Conclusion
+8) Conclusion [ ANNALISA ]
