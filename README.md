@@ -24,5 +24,5 @@ SHINYAPP
 4) Linear and GAM Models Step 6 --> Ridge and Lasso
 5) Linear and GAM Models Step 7 --> Splines
 6) Linear and GAM Models Step 8 --> GAMs
-7) Other models (find a better name!!!) --> -MARS, trees , random forest
+7) Other models (find a better name!!!) --> -MARS, trees , random forest   [ LUCA ]
 8) Conclusion
