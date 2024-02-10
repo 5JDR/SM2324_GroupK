@@ -32,9 +32,10 @@ ui <- dashboardPage(
                menuSubItem("Regional Analysis", tabName = "regionalAnalysis")
       ),
       menuItem("Predictive Model Building", tabName = "modelBuilding", icon = icon("cogs"),
-               menuSubItem("Linear Model", tabName = "linearmodel"),
-               menuSubItem("Polynomial Model", tabName = "polynomialmodelc"),
-               menuSubItem("Gam Model", tabName = "gammodel")
+               menuSubItem("Linear and Gam Models", tabName = "linearmodel"),
+               menuSubItem("Other Models", tabName = "othermodels"),
+               menuSubItem('Conclusion', tabName = 'conclusion')
+               
       )
     )),
   dashboardBody(
@@ -155,11 +156,13 @@ ui <- dashboardPage(
                           choices = list("Step 1: Initial Model" = "step1",
                                          "Step 2: High-correlation variables" = "step2",
                                          "Step 3: Saturated Model" = "step3",
-                                         "Step 4: Final Model" = "step4")),
+                                         "Step 4: Final Linear Model" = "step4")),
               
               uiOutput("linearModelOutput")
               
       )
+      
+      
       
       
       # More tabItems can be added for additional sections
