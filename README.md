@@ -14,12 +14,12 @@ SHINYAPP
                                    - Step AIC
                                    - refactoring covaraites
                                    - VIF
-                                   - introduce best model and resiuduals analysis     
+                                   - introduce best model and resiuduals analysis     [ SANDRO ]
 
 2) Linear and GAM Models Step 5 --> Polynomial Regression
                                     - Step AIC
                                    - refactoring covaraites
-                                   - VIF
+                                   - VIF  [ SANDRO ]
                                     
 4) Linear and GAM Models Step 6 --> Ridge and Lasso   [ LUCA ]
 5) Linear and GAM Models Step 7 --> Splines
