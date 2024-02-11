@@ -9,7 +9,7 @@ library(reshape2)
 library(haven)
 library(shinydashboard)
 library(splines)
-
+library(mgcv)
 
 # for melt function
 
@@ -159,7 +159,8 @@ ui <- dashboardPage(
                                          "Step 2: High-correlation variables" = "step2",
                                          "Step 3: Saturated Model" = "step3",
                                          "Step 4: Final Linear Model" = "step4",
-                                         "splines: Final model with categorical variables" = "splines"),),
+                                         "Step 7: Best splines model" = "step7",
+                                         "Step 8: Most sig. GAM model" = "step8"),),
               
               
               uiOutput("linearModelOutput")
@@ -699,9 +700,7 @@ server <- function(input, output) {
   #########################################################################################
   spline_cat_model <- reactive({
     # Fit the spline_cat model
-    spline_cat <- lm(zscore ~ ns(c_gender) + ns(c_breastf) + ns(c_age, df = 3) + 
-                       ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, 
-                                                                          df = 3) + ns(m_education) + ns(region) + ns(district), data=train_data_cat)
+    spline_cat <- lm(zscore ~ ns(c_gender) + ns(c_breastf) + ns(c_age, df = 3) + ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, df = 3) + ns(m_education) + ns(region) + ns(district), data=train_data_cat)
     return(spline_cat)
   })
   # Reactive expression for model predictions and error metrics
@@ -763,7 +762,91 @@ server <- function(input, output) {
            x = "Actual zscore", y = "Predicted zscore")
   })
   
-  # Render test error metrics for spline_cat model
+  #########################################################################
+  
+  # Fit the GAM model
+  gam_most_significant <- reactive({
+    gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + 
+          s(m_bmi) + m_education + region, data = train_data)
+  })
+  
+  # Reactive for generating predictions and handling potential issues
+  gam_predictions <- reactive({
+    if (is.null(gam_most_significant())) {
+      return(NULL)  # Early exit if the model hasn't been successfully created
+    }
+    
+    tryCatch({
+      predict(gam_most_significant(), newdata = test_data)
+    }, error = function(e) {
+      return(NULL)  # Handle prediction errors by returning NULL
+    })
+  })
+  
+  # Calculate test errors and criteria
+  gam_test_results <- reactive({
+    model <- gam_most_significant()
+    predicted <- predict(model, newdata = test_data)
+    actual <- test_data$zscore
+    
+    MSE <- mean((predicted - actual)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - actual))
+    AIC_value <- AIC(model)
+    BIC_value <- BIC(model)
+    
+    list(MSE = MSE, RMSE = RMSE, MAE = MAE, AIC = AIC_value, BIC = BIC_value)
+  })
+  
+  # Output the summary of GAM model
+  output$gamModelSummary <- renderPrint({
+    summary(gam_most_significant())
+  })
+  
+  # Output the model diagnostics
+  output$gamModelDiagnostics <- renderText({
+    diag <- gam_test_results()
+    paste("MSE:", diag$MSE, "RMSE:", diag$RMSE, "MAE:", diag$MAE, "AIC:", diag$AIC, "BIC:", diag$BIC)
+  })
+  
+  # Render diagnostic plots for the GAM model
+  output$gamDiagnosticPlots <- renderPlot({
+    req(gam_most_significant()) # Ensure the gam model is available
+    
+    par(mfrow = c(2, 2)) # Set up the plotting area to display 4 plots (2x2 grid)
+    plot(gam_most_significant(), pch = 20, cex = 0.5, xlab = "Theoretical quantiles of Z-score", ylab = "Obseverved quantiles of Z-score") # Residuals vs Fitted plot 
+    plot(gam_most_significant(), resid = TRUE, xlab = "Fitted values of Z-score", ylab = "Residuals of Z-score") #
+    plot(gam_most_significant(), se = TRUE, xlab = "Residuals of Z-score", ylab = "Frequency") # 
+    plot(gam_most_significant(), scheme = 1, shade = TRUE, pch = 20, cex = 0.5, xlab = "Fitted Values of Z-score", ylab = "Observed Z-score") # 
+    gam.check(gam_most_significant()) # Additional checks for the GAM model
+    
+    # Reset the graphical parameters
+    par(mfrow = c(1, 1))
+  }, height = 800)
+  
+  # Render actual vs. predicted plot for GAM model
+  output$gamActualVsPredicted <- renderPlot({
+    req(!is.null(gam_predictions()))  # Ensure predictions are not NULL
+    
+    # Create comparison data frame
+    comparison_data <- data.frame(
+      Actual = test_data$zscore,
+      Predicted = gam_predictions()
+    )
+    
+    # Check for data integrity before plotting
+    if (nrow(comparison_data) > 0 && !anyNA(comparison_data$Predicted)) {
+      ggplot(comparison_data, aes(x = Actual, y = Predicted)) +
+        geom_point() +
+        geom_abline(intercept = 0, slope = 1, color = "red") +
+        labs(title = "Actual vs. Predicted for GAM Model",
+             x = "Actual zscore", y = "Predicted zscore")
+    } else {
+      plot.new()
+      text(0.5, 0.5, "Unable to generate plot due to data issues")
+    }
+  })
+  
   
   ################################################################################
    
@@ -800,7 +883,7 @@ server <- function(input, output) {
         HTML("<p>Step 4: Explanation of final model...</p>"),
         verbatimTextOutput("modelStep4")
       )
-    }else if (step == "splines") {
+    }else if (step == "step7") {
       tagList(
         HTML("<p>Splines: The best Spline model found is the one found with step AIC, it's the one that uses all predictors except 'm_work' and uses the categorical version of 'c_breastf' :</p>"),
         verbatimTextOutput("splineCatModelSummary"),
@@ -809,9 +892,18 @@ server <- function(input, output) {
         plotOutput("splineCatActualVsPredicted")
         
       )
+    }else if (step == "step8") {
+      tagList(
+        HTML("<p>GAM: To represent the best Generalized Additive Model (GAM), we'll take the gam_most_significant model which uses the following variables: child's gender, duration of breastfeeding, child's age, mother's age at birth, mother's height, and mother's BMI, as well as mother's education and the region of residence. , this seems to have the best performance based on the analysis. We'll include the model fitting, the calculation of test errors, and the plotting of residuals. <p>"),
+        verbatimTextOutput("gamModelSummary"),
+        textOutput("gamModelDiagnostics"),
+        plotOutput("gamDiagnosticPlots", height = "800px"),
+        plotOutput("gamActualVsPredicted")
+        
+        
+      )
     }
   })
-  
 }
 
 
