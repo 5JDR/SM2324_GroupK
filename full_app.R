@@ -8,6 +8,8 @@ library(DT)
 library(reshape2)
 library(haven)
 library(shinydashboard)
+library(splines)
+
 
 # for melt function
 
@@ -156,41 +158,13 @@ ui <- dashboardPage(
                           choices = list("Step 1: Initial Model" = "step1",
                                          "Step 2: High-correlation variables" = "step2",
                                          "Step 3: Saturated Model" = "step3",
-                                         "Step 4: Final Linear Model" = "step4")),
+                                         "Step 4: Final Linear Model" = "step4",
+                                         "splines: Final model with categorical variables" = "splines"),),
+              
               
               uiOutput("linearModelOutput")
               
-      ),
-
-
-      tabItem(tabName = "Conclusions",
-              HTML("<p style='font-size:16px; color: #333333;'>The best <b>Linear 
-                   Regression model</b> found is the one that uses all predictors 
-                   except m_work and district, and considers interaction between 
-                   c_breastf (the categorical version of it) and c_age:<br><b>MSE:
-                   </b> 15443.93, <b>RMSE:</b> 124.27, <b>MAE:</b> 90.28<br><b>AIC:
-                   </b> 46758, <b>BIC:</b> 46882.<br>The best <b>Polynomial 
-                   Regression model</b> found with step AIC, it’s the one that 
-                   has degree 2, uses all predictors except m_agebirth, doesn’t 
-                   consider the square of m_bmi and considers interaction between 
-                   c_breastf and c_age and uses the categorical version of 
-                   c_breastf:<br><b>MSE:</b> 15337.69, <b>RMSE:</b> 123.84, 
-                   <b>MAE:</b> 90.21<br><b>AIC:</b> 46696, <b>BIC:</b> 46833.<br>Ridge 
-                   and LASSO regression didn’t give any interesting results.<br>
-                   The best <b>Spline model</b> found is the one found with step 
-                   AIC, it’s the one that uses all predictors except m_work and 
-                   uses the categorical version of c_breastf:<br><b>MSE:</b> 
-                   15345.08, <b>RMSE:</b> 123.87, <b>MAE:</b> 90.78<br><b>AIC:</b> 
-                   46703, <b>BIC:</b> 46822.<br>The best <b>GAM model</b> found 
-                   is the one that uses all predictors except the least significant 
-                   ones:<br><b>MSE:</b> 15186.43, <b>RMSE:</b> 123.23, <b>MAE:</b> 
-                   89.92<br><b>AIC:</b> 46693, <b>BIC:</b> 46860.<br><b>MARS</b> 
-                   automatically selects which predictors to maintain, the best 
-                   MARS model found:<br><b>MSE:</b> 15080.36, <b>RMSE:</b> 122.80, 
-                   <b>MAE:</b> 89.64.<br>The best <b>Random Forest model</b> found 
-                   is the one that uses all predictors, and 1000 trees:<br><b>MSE:</b> 
-                   15125.92, <b>RMSE:</b> 122.99, <b>MAE:</b> 90.99.<br>In the end, 
-                   MARS and Random Forests are the best models found for this data.</p>"))
+      )
       
       
       
@@ -246,6 +220,21 @@ server <- function(input, output) {
   #factorize district
   train_data$district <- as.factor(train_data$district)
   test_data$district <- as.factor(test_data$district)
+  
+  #for splines we need to convert the categorical variables to factors
+  #train_data_cat <- train_data  # Make sure to copy the original data
+  #train_data_cat$c_breastf <- as.factor(train_data$c_breastf)  # Convert to factor if it's categorical
+  
+  #test_data_cat <- test_data  # Copy the original test data
+  #test_data_cat$c_breastf <- as.factor(test_data$c_breastf)  # Convert to factor for test data as well
+  
+  train_data_cat <- train_data
+  test_data_cat <- test_data
+  train_data_cat$c_breastf <- ifelse(train_data$c_breastf == 0 | train_data$c_breastf == 1 | train_data$c_breastf == 2, 0, 1)
+  test_data_cat$c_breastf <- ifelse(test_data$c_breastf == 0 | test_data$c_breastf == 1 | test_data$c_breastf == 2, 0, 1)
+  train_data_cat$c_breastf <- as.factor(train_data_cat$c_breastf)
+  test_data_cat$c_breastf <- as.factor(test_data_cat$c_breastf)
+  
   
  
   
@@ -707,6 +696,75 @@ server <- function(input, output) {
     par(mfrow = c(1, 1))
   })
   
+  #########################################################################################
+  spline_cat_model <- reactive({
+    # Fit the spline_cat model
+    spline_cat <- lm(zscore ~ ns(c_gender) + ns(c_breastf) + ns(c_age, df = 3) + 
+                       ns(m_agebirth, df = 3) + ns(m_height, df = 3) + ns(m_bmi, 
+                                                                          df = 3) + ns(m_education) + ns(region) + ns(district), data=train_data_cat)
+    return(spline_cat)
+  })
+  # Reactive expression for model predictions and error metrics
+  model_diagnostics <- reactive({
+    model <- spline_cat_model()
+    predicted <- predict(model, newdata = test_data_cat)
+    actual <- test_data_cat$zscore
+    
+    MSE <- mean((predicted - actual)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - actual))
+    AIC_value <- AIC(model)
+    BIC_value <- BIC(model)
+    
+    list(
+      MSE = MSE,
+      RMSE = RMSE,
+      MAE = MAE,
+      AIC = AIC_value,
+      BIC = BIC_value,
+      predicted = predicted
+    )
+  })
+  
+  # To predict and compute test error metrics
+  spline_cat_predictions <- reactive({
+    predict(spline_cat_model(), newdata = test_data_cat)
+  })
+  
+  # Output the summary of spline_cat model
+  output$splineCatModelSummary <- renderPrint({
+    summary(spline_cat_model())
+  })
+  
+  # Output the model diagnostics
+  output$splineCatModelDiagnostics <- renderText({
+    diag <- model_diagnostics()
+    paste(    "\nTest Set Error Metrics :\n",
+              "MSE: ", diag$MSE, "\nRMSE: ", diag$RMSE, "\nMAE: ", diag$MAE, "\n",
+              "AIC: ", diag$AIC, "\nBIC: ", diag$BIC, "\n")
+  })
+  
+  # Render diagnostic plots for the spline_cat model
+  output$splineCatDiagnosticPlots <- renderPlot({
+    par(mfrow = c(2, 2))
+    plot(spline_cat_model())
+  })
+  
+  # Render actual vs. predicted plot for spline_cat model
+  output$splineCatActualVsPredicted <- renderPlot({
+    predicted_values <- spline_cat_predictions()
+    diag <- model_diagnostics()
+    comparison_data <- data.frame(Actual = test_data_cat$zscore, Predicted = predicted_values)
+    
+    ggplot(comparison_data, aes(x = Actual, y = Predicted)) +
+      geom_point() +
+      geom_abline(intercept = 0, slope = 1, color = "red") +
+      labs(title = "Actual vs. Predicted for spline_cat Model",
+           x = "Actual zscore", y = "Predicted zscore")
+  })
+  
+  # Render test error metrics for spline_cat model
+  
   ################################################################################
    
   
@@ -741,6 +799,15 @@ server <- function(input, output) {
       tagList(
         HTML("<p>Step 4: Explanation of final model...</p>"),
         verbatimTextOutput("modelStep4")
+      )
+    }else if (step == "splines") {
+      tagList(
+        HTML("<p>Splines: The best Spline model found is the one found with step AIC, it's the one that uses all predictors except 'm_work' and uses the categorical version of 'c_breastf' :</p>"),
+        verbatimTextOutput("splineCatModelSummary"),
+        textOutput("splineCatModelDiagnostics"),
+        plotOutput("splineCatDiagnosticPlots"),
+        plotOutput("splineCatActualVsPredicted")
+        
       )
     }
   })
