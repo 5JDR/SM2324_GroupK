@@ -153,10 +153,11 @@ ui <- dashboardPage(
       # Add tabItems for model building
       tabItem(tabName = "linearmodel",
               selectInput("modelStep", "Select Model Building Step:",
-                          choices = list("Step 1: Initial Model" = "step1",
-                                         "Step 2: High-correlation variables" = "step2",
-                                         "Step 3: Saturated Model" = "step3",
-                                         "Step 4: Final Linear Model" = "step4")),
+                          choices = list("Step 1: Initial Linear Model" = "step1",
+                                         "Step 2: Linear Model with Highly Correlated Variables" = "step2",
+                                         "Step 3: Saturated Linear Model" = "step3",
+                                         "Step 4: Final Linear Model" = "step4",
+                                         "Step 5: Polynomial Regression Model" = "step5")),
               
               uiOutput("linearModelOutput")
               
@@ -244,6 +245,14 @@ server <- function(input, output) {
   #factorize district
   train_data$district <- as.factor(train_data$district)
   test_data$district <- as.factor(test_data$district)
+  
+  #factorize c_breastf
+  train_data_cat <- train_data
+  test_data_cat <- test_data
+  train_data_cat$c_breastf <- ifelse(train_data$c_breastf == 0 | train_data$c_breastf == 1 | train_data$c_breastf == 2, 0, 1)
+  test_data_cat$c_breastf <- ifelse(test_data$c_breastf == 0 | test_data$c_breastf == 1 | test_data$c_breastf == 2, 0, 1)
+  train_data_cat$c_breastf <- as.factor(train_data_cat$c_breastf)
+  test_data_cat$c_breastf <- as.factor(test_data_cat$c_breastf)
   
  
   
@@ -705,8 +714,95 @@ server <- function(input, output) {
     par(mfrow = c(1, 1))
   })
   
-  ################################################################################
-   
+  #########################################################################################
+  
+  output$modelStep4 <- renderPrint({
+    # Fit
+    lm_final <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+    
+    # Display the summary of the full model
+    print(summary(lm_final))
+    
+    # Predict on test data and calculate errors
+    predicted_final <- predict(lm_final, newdata = test_data_cat)
+    MSE_final <- mean((predicted_final - test_data_cat$zscore)^2)
+    RMSE_final <- sqrt(MSE_final)
+    MAE_final <- mean(abs(predicted_final - test_data_cat$zscore))
+    
+    # Calculate AIC and BIC
+    AIC_value_final <- AIC(lm_final)
+    BIC_value_final <- BIC(lm_final)
+    
+    # Display test error metrics
+    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("MSE: ", MSE_final, "\nRMSE: ", RMSE_final, "\nMAE: ", MAE_final, "\n")
+    cat("\nModel Criteria (Full Model):\n")
+    cat("AIC: ", AIC_value_final, "\nBIC: ", BIC_value_final, "\n")
+    
+  })
+  
+  output$residualsPlotStep4 <- renderPlot({
+    # Fit
+    lm_final <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+    
+    # Set up the plot area for a 2x2 grid of plots
+    par(mfrow = c(2, 2))
+    
+    # Generate diagnostic plots
+    plot(lm_final)
+    
+    # Add a main title for all plots
+    mtext("Final Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
+    
+    # Reset plot settings to default (optional, but good practice)
+    par(mfrow = c(1, 1))
+  })
+  
+  #########################################################################################
+  
+  output$modelStep5 <- renderPrint({
+    # Fit
+    lm_poly <- lm(zscore ~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = train_data_cat)
+    
+    # Display the summary of the full model
+    print(summary(lm_poly))
+    
+    # Predict on test data and calculate errors
+    predicted_poly <- predict(lm_poly, newdata = test_data_cat)
+    MSE_poly <- mean((predicted_poly - test_data_cat$zscore)^2)
+    RMSE_poly <- sqrt(MSE_poly)
+    MAE_poly <- mean(abs(predicted_poly - test_data_cat$zscore))
+    
+    # Calculate AIC and BIC
+    AIC_value_poly <- AIC(lm_poly)
+    BIC_value_poly <- BIC(lm_poly)
+    
+    # Display test error metrics
+    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("MSE: ", MSE_poly, "\nRMSE: ", RMSE_poly, "\nMAE: ", MAE_poly, "\n")
+    cat("\nModel Criteria (Full Model):\n")
+    cat("AIC: ", AIC_value_poly, "\nBIC: ", BIC_value_poly, "\n")
+    
+  })
+  
+  output$residualsPlotStep5 <- renderPlot({
+    # Fit
+    lm_poly <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+    
+    # Set up the plot area for a 2x2 grid of plots
+    par(mfrow = c(2, 2))
+    
+    # Generate diagnostic plots
+    plot(lm_poly)
+    
+    # Add a main title for all plots
+    mtext("Final Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
+    
+    # Reset plot settings to default (optional, but good practice)
+    par(mfrow = c(1, 1))
+  })
+  
+  ################################################################################ 
   
   output$linearModelOutput <- renderUI({
     step <- input$modelStep
@@ -737,8 +833,35 @@ server <- function(input, output) {
       )
     }else if (step == "step4") {
       tagList(
-        HTML("<p>Step 4: Explanation of final model...</p>"),
-        verbatimTextOutput("modelStep4")
+        HTML("<h1 style='font-weight: bold'>Step 4: Final Linear Model<h1 style='font-weight: bold'>
+             <h3>After testing the saturated model, the following improvements have been tried:</h3>
+             <h3><ul>
+                    <li>Removing the less significant predictors <i>c_breastf</i>, <i>m_work</i> and <i>district</i></li>
+                    <li>Introducing interaction between highly correlated covariates (<i>c_age</i> and <i>c_breastf</i>)</li>
+                    <li>Log-transofming the skewed covariates</li>
+                    <li>Step AIC</li>
+                    <li>Transforming <i>c_breastf</i> from continuous to binary (0 if <i>c_breastf</i> < 2; 1 otherwise)</li>
+                    <li>Analysis of multicollinearity</li>
+                 <ul></h3>
+             <h3>In the end, the best solution that has found considers all predictors except <i>m_work</i> and <i>district</i>, and considers interaction between the categorical version of <i>c_breastf</i> and <i>c_age</i></h3>
+             <h3>Log-transformations, step AIC and the analysis of multicollinearity didn't lead to any improvement.</h3>"),
+        verbatimTextOutput("modelStep4"),
+        plotOutput("residualsPlotStep4", width = "100%", height = "600px")
+      )
+    }else if (step == "step5") {
+      tagList(
+        HTML("<h1 style='font-weight: bold'>Step 5: Polynomial Regression Model<h1 style='font-weight: bold'>
+             <h3>At this point, polynomials of degree 2 have been introduced in the best model found so far.</h3>"),
+        verbatimTextOutput("modelStep5"),
+        plotOutput("residualsPlotStep5", width = "100%", height = "600px"),
+        HTML("<h1 style='font-weight: bold'>Improving the Polynomial Regression Model<h1 style='font-weight: bold'>
+          <h3>The improvements that have been tried are:</h3>
+          <h3><ul>
+          <li>Adding polynomials of degree 3</li>
+          <li>Step AIC</li>
+          <li>Analysis of multicollinearity</li>
+          </ul></h3>
+          <h3>None of these improvements led to a better model.</h3>")
       )
     }
   })
