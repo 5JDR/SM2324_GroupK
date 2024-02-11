@@ -160,7 +160,37 @@ ui <- dashboardPage(
               
               uiOutput("linearModelOutput")
               
-      )
+      ),
+
+
+      tabItem(tabName = "Conclusions",
+              HTML("<p style='font-size:16px; color: #333333;'>The best <b>Linear 
+                   Regression model</b> found is the one that uses all predictors 
+                   except m_work and district, and considers interaction between 
+                   c_breastf (the categorical version of it) and c_age:<br><b>MSE:
+                   </b> 15443.93, <b>RMSE:</b> 124.27, <b>MAE:</b> 90.28<br><b>AIC:
+                   </b> 46758, <b>BIC:</b> 46882.<br>The best <b>Polynomial 
+                   Regression model</b> found with step AIC, it’s the one that 
+                   has degree 2, uses all predictors except m_agebirth, doesn’t 
+                   consider the square of m_bmi and considers interaction between 
+                   c_breastf and c_age and uses the categorical version of 
+                   c_breastf:<br><b>MSE:</b> 15337.69, <b>RMSE:</b> 123.84, 
+                   <b>MAE:</b> 90.21<br><b>AIC:</b> 46696, <b>BIC:</b> 46833.<br>Ridge 
+                   and LASSO regression didn’t give any interesting results.<br>
+                   The best <b>Spline model</b> found is the one found with step 
+                   AIC, it’s the one that uses all predictors except m_work and 
+                   uses the categorical version of c_breastf:<br><b>MSE:</b> 
+                   15345.08, <b>RMSE:</b> 123.87, <b>MAE:</b> 90.78<br><b>AIC:</b> 
+                   46703, <b>BIC:</b> 46822.<br>The best <b>GAM model</b> found 
+                   is the one that uses all predictors except the least significant 
+                   ones:<br><b>MSE:</b> 15186.43, <b>RMSE:</b> 123.23, <b>MAE:</b> 
+                   89.92<br><b>AIC:</b> 46693, <b>BIC:</b> 46860.<br><b>MARS</b> 
+                   automatically selects which predictors to maintain, the best 
+                   MARS model found:<br><b>MSE:</b> 15080.36, <b>RMSE:</b> 122.80, 
+                   <b>MAE:</b> 89.64.<br>The best <b>Random Forest model</b> found 
+                   is the one that uses all predictors, and 1000 trees:<br><b>MSE:</b> 
+                   15125.92, <b>RMSE:</b> 122.99, <b>MAE:</b> 90.99.<br>In the end, 
+                   MARS and Random Forests are the best models found for this data.</p>"))
       
       
       
