@@ -1219,7 +1219,7 @@ The best Linear Regression model found is the one that uses all predictors excep
 
 The best Polynomial Regression model found is the one that has degree 2, uses all predictors except m_work and district, and considers interaction between the categorical version of c_breastf and c_age:
 
-* MSE:  15360.3929055783, RMSE:  123.937052190127, MAE:  90.3405083885375
+* MSE:  15360.39, RMSE:  123.94, MAE:  90.34
 * AIC:  46699, BIC:  46848
 
 Ridge and LASSO regression didn't give any interesting results.

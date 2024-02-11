@@ -166,18 +166,16 @@ ui <- dashboardPage(
       tabItem(tabName = "Conclusions",
               HTML("<p style='font-size:16px; color: #333333;'>The best <b>Linear 
                    Regression model</b> found is the one that uses all predictors 
-                   except m_work and district, and considers interaction between 
-                   c_breastf (the categorical version of it) and c_age:<br><b>MSE:
+                   except m_work and district, and considers interaction between the 
+                   categorical version of c_breastf and c_age:<br><b>MSE:
                    </b> 15443.93, <b>RMSE:</b> 124.27, <b>MAE:</b> 90.28<br><b>AIC:
-                   </b> 46758, <b>BIC:</b> 46882.<br>The best <b>Polynomial 
-                   Regression model</b> found with step AIC, it’s the one that 
-                   has degree 2, uses all predictors except m_agebirth, doesn’t 
-                   consider the square of m_bmi and considers interaction between 
-                   c_breastf and c_age and uses the categorical version of 
-                   c_breastf:<br><b>MSE:</b> 15337.69, <b>RMSE:</b> 123.84, 
-                   <b>MAE:</b> 90.21<br><b>AIC:</b> 46696, <b>BIC:</b> 46833.<br>Ridge 
-                   and LASSO regression didn’t give any interesting results.<br>
-                   The best <b>Spline model</b> found is the one found with step 
+                   </b> 46758, <b>BIC:</b> 46882.<br>The best <b>Polynomial Regression 
+                   model</b> found is the one that has degree 2, uses all predictors 
+                   except m_work and district, and considers interaction between the 
+                   categorical version of c_breastf and c_age:<br><b>MSE</b>: 15360.39,
+                   <b>RMSE</b>: 123.94, <b>MAE</b>: 90.34, <b>AIC</b>: 46699, <b>BIC</b>: 
+                   46848.<br>Ridge and LASSO regression didn’t give any interesting results.
+                   <br>The best <b>Spline model</b> found is the one found with step 
                    AIC, it’s the one that uses all predictors except m_work and 
                    uses the categorical version of c_breastf:<br><b>MSE:</b> 
                    15345.08, <b>RMSE:</b> 123.87, <b>MAE:</b> 90.78<br><b>AIC:</b> 
