@@ -442,6 +442,26 @@ par(mfrow=c(1,1))
 
 Nothing new here.
 
+Let's apply step AIC to this solution.
+
+```{r lm_step_AIC_interaction2_cat}
+test_lm_interaction2_cat <- stepAIC(lm_interaction2_cat, direction = "both")
+
+predicted <- predict(test_lm_interaction2_cat, newdata = test_data_cat)
+MSE <- mean((predicted - test_data_cat$zscore)^2)
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(predicted - test_data_cat$zscore))
+
+paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+
+AIC <- AIC(test_lm_interaction2_cat)
+BIC <- BIC(test_lm_interaction2_cat)
+
+paste("AIC: ", round(AIC), ", BIC: ", round(BIC))
+```
+
+The manually built version was better.
+
 Let's analyze the vif of the best linear model found.
 
 ```{r vif_lm}

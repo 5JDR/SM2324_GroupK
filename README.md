@@ -31,3 +31,6 @@ SHINYAPP
 # check number of occurences for NA district estimations saturated model!!!!!!!!!!!!!!!!!!!
 
 # check if it's needed to write something in each page
+
+- splines (with mostly correlated vars, with all vars, with most significant vars, with interaction, step AIC, categorical c_breastf)
+- GAM (most correlated vars, complete, removed less significant vars, interaction, categorical, linearized, ANOVA to compare different models)

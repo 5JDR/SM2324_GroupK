@@ -40,7 +40,7 @@ ui <- dashboardPage(
       menuItem("Predictive Model Building", tabName = "modelBuilding", icon = icon("cogs"),
                menuSubItem("Linear and Gam Models", tabName = "linearmodel"),
                menuSubItem("Other Models", tabName = "othermodels"),
-               menuSubItem('Conclusion', tabName = 'conclusion')
+               menuSubItem('Conclusions', tabName = 'Conclusions')
                
       )
     )),
@@ -75,18 +75,7 @@ ui <- dashboardPage(
              <p>This dataset serves as a tool for understanding the scale
                     and specifics of child malnutrition in Zambia, providing 
                     valuable insights.</p>")),
-      tabItem(tabName = "zscoreHist", plotlyOutput("zscoreHist",width = "100%", height = "800px"),
-              HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
-                   Distribution of Children in Zambia:</b> <span style='color:
-                   #2E86C1;'>This histogram vividly illustrates the Z-score
-                   distribution</span> for children aged 0-5, based on a 1992
-                   survey. Observing the <span style='color: #28B463; font-weight:
-                   bold;'>normal distribution curve</span>, it's striking to note
-                   the <span style='background-color: #FADBD8;'><b>mean Z-score at 
-                   -172.8</b></span>, a stark indicator of the nutritional gap when 
-                   compared to the reference population of US-American children. 
-                   This significant deviation paints a picture of the disparities
-                   in child nutrition.</p>")),
+      tabItem(tabName = "zscoreHist", plotlyOutput("zscoreHist",width = "100%", height = "800px")),
       tabItem(tabName = "correlationMatrix", plotlyOutput("correlationMatrix",height = "800px")),
       tabItem(tabName = "genderAnalysis",
               radioButtons("genderSelect", "Select Gender:",
@@ -94,11 +83,7 @@ ui <- dashboardPage(
                                           "Female" = "0",
                                           "Male" = "1"),
                            selected = "both"),
-              plotlyOutput("genderAnalysis", width = "100%", height = "800px"),
-              HTML("<p style='font-size:16px; color: #333333;'><b>Z-Score 
-                   Distribution of Children in Zambia, divided by gender:</b>
-                   There isn't a substantial difference between the two sub-populations,
-                   the zscore distribution seems quite balanced for males and females.</p>")),
+              plotlyOutput("genderAnalysis", width = "100%", height = "800px")),
       #tabItem(tabName = "Breast-feedings", plotlyOutput("cBreastfHist",height = "800px")),
       
       tabItem(tabName = "zscoreBreastfMarginalPlot",
@@ -154,7 +139,9 @@ ui <- dashboardPage(
       
       
       
-      tabItem(tabName= "regionalAnalysis", leafletOutput("regionalAnalysis",height = "800px")),
+      tabItem(tabName= "regionalAnalysis", 
+              HTML("<h1 style = 'font-weight: bold>Zambia's regions, coloured by mean zscore</h1>"),
+              leafletOutput("regionalAnalysis",height = "800px")),
       # Predictive Model Building Tabs
       # Add tabItems for model building
       tabItem(tabName = "linearmodel",
@@ -164,7 +151,7 @@ ui <- dashboardPage(
                                          "Step 3: Saturated Model" = "step3",
                                          "Step 4: Final Linear Model" = "step4",
                                          "Step 5: Polynomial Regression Model" = "step5",
-                                         "Step 6: Ridge and Regression Models" = "step6",
+                                         "Step 6: Ridge and LASSO Regression Models" = "step6",
                                          "Step 7: GAM model" = "step7")
                                         ),
                                          
@@ -179,7 +166,9 @@ ui <- dashboardPage(
                                          "Random Forest" = "rf",
                                          "MARS" = "mars")),
               uiOutput("othermodelsOutput")
-      )
+      ),
+      tabItem(tabName = "Conclusions",
+              DT::DTOutput("conclusionsTable"))
       
       
       
@@ -239,9 +228,7 @@ server <- function(input, output) {
  
   
   # Data Overview
-  output$dataOverview <- DT::renderDataTable({
-    DT::datatable(data, options = list(pageLength = 5))
-  })
+ 
   
   # Interactive Histogram of zscore
   output$zscoreHist <- renderPlotly({
@@ -253,9 +240,13 @@ server <- function(input, output) {
       stat_function(fun = dnorm, args = list(mean = mean, sd = sd ),geom = "polygon", color = "red",fill = "red",alpha = 0.3, size = 1, text = paste("Normal Distribution"))+
       #histogram of density instead of count
       geom_histogram(aes(y = ..density..),binwidth = 30, fill = "blue", alpha = 0.7) +
-      labs(title = "Histogram of zscore", x = "zscore", y = "Density")
+      labs(x = "zscore", y = "Density")
     
-    p <- p + geom_vline(aes(xintercept = mean), color = "green", linetype = "dashed",alpha = 0.7, size = 1)
+    p <- p + geom_vline(aes(xintercept = mean), color = "green", linetype = "dashed",alpha = 0.7, size = 1) +
+      theme_minimal() +
+      # Make axis labels bigger
+      theme(axis.text = element_text(size = 15, family="Arial"),
+            axis.title = element_text(size = 18, family="Arial"))
     
     ggplotly(p)
   })
@@ -303,25 +294,8 @@ server <- function(input, output) {
               opacity = 0.6,
               line = list(color = 'black', width = 2)  # Add border with specified color and width
             )) %>%
-      layout(title = 'Relative Frequency Histogram of zscore by Gender',
-             xaxis = list(title = 'zscore'),
-             yaxis = list(title = 'Relative Frequency'))
-  })
-  
-  
-  
-  
-  
-  
-  # Histograms of zscore by Gender
-  output$zscoreGenderHist <- renderPlotly({
-    # Implement histograms of zscore by c_gender = 0 and c_gender = 1
-    p <- ggplot(train_data, aes(x = zscore, y = after_stat(count / sum(count)))) +
-      geom_histogram(data = subset(train_data, c_gender == 0), aes(fill = "Female"), colour = 'black') +
-      geom_histogram(data = subset(train_data, c_gender == 1), aes(fill = "Male"), colour = 'black', alpha = 0.5) +
-      scale_fill_manual(name = "Gender", values=c("pink1", "steelblue1")) +
-      labs(title = "Histograms of zscore by gender", x = "zscore", y = NULL)
-    ggplotly(p)
+      layout(xaxis = list(title = list(text = 'zscore', size = 18)),
+             yaxis = list(title = list(text = 'Relative Frequency', size = 18)))
   })
     
    
@@ -672,9 +646,9 @@ server <- function(input, output) {
     BIC_value_full <- BIC(lm_full)
     
     # Display test error metrics
-    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("\nTest Set Error Metrics (Complete Model):\n")
     cat("MSE: ", MSE_full, "\nRMSE: ", RMSE_full, "\nMAE: ", MAE_full, "\n")
-    cat("\nModel Criteria (Full Model):\n")
+    cat("\nModel Criteria (Complete Model):\n")
     cat("AIC: ", AIC_value_full, "\nBIC: ", BIC_value_full, "\n")
     
   })
@@ -690,7 +664,7 @@ server <- function(input, output) {
     plot(lm_full)
     
     # Add a main title for all plots
-    mtext("Full Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
+    mtext("Complete Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
     
     # Reset plot settings to default (optional, but good practice)
     par(mfrow = c(1, 1))
@@ -725,9 +699,9 @@ server <- function(input, output) {
     BIC_value_final <- BIC(lm_final)
     
     # Display test error metrics
-    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("\nTest Set Error Metrics (Complete Model):\n")
     cat("MSE: ", MSE_final, "\nRMSE: ", RMSE_final, "\nMAE: ", MAE_final, "\n")
-    cat("\nModel Criteria (Full Model):\n")
+    cat("\nModel Criteria (Complete Model):\n")
     cat("AIC: ", AIC_value_final, "\nBIC: ", BIC_value_final, "\n")
     
   })
@@ -768,9 +742,9 @@ server <- function(input, output) {
     BIC_value_poly <- BIC(lm_poly)
     
     # Display test error metrics
-    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("\nTest Set Error Metrics (Complete Model):\n")
     cat("MSE: ", MSE_poly, "\nRMSE: ", RMSE_poly, "\nMAE: ", MAE_poly, "\n")
-    cat("\nModel Criteria (Full Model):\n")
+    cat("\nModel Criteria (Complete Model):\n")
     cat("AIC: ", AIC_value_poly, "\nBIC: ", BIC_value_poly, "\n")
     
   })
@@ -871,7 +845,7 @@ server <- function(input, output) {
     AIC_value <- AIC(model)
     BIC_value <- BIC(model)
     
-    list(MSE = MSE, RMSE = RMSE, MAE = MAE, AIC = AIC_value, BIC = BIC_value)
+    paste("MSE:", MSE, "RMSE:", RMSE, "MAE:", MAE, "AIC:", AIC_value, "BIC:", BIC_value)
   })
   
   # Output the summary of GAM model
@@ -880,9 +854,8 @@ server <- function(input, output) {
   })
   
   # Output the model diagnostics
-  output$gamModelDiagnostics <- renderText({
-    diag <- gam_test_results()
-    paste("MSE:", diag$MSE, "RMSE:", diag$RMSE, "MAE:", diag$MAE, "AIC:", diag$AIC, "BIC:", diag$BIC)
+  output$gamModelDiagnostics <- renderPrint({
+    gam_test_results()
   })
   
   # Render diagnostic plots for the GAM model
@@ -931,8 +904,7 @@ server <- function(input, output) {
     
     if (step == "step1") {
       tagList(
-        HTML("<p>Step 1: Initial Model (Null Model)</p>
-           <p>In this step, we start with a null model. A null model predicts the outcome (zscore) using only the intercept. This model doesn't include any predictors and serves as a baseline to compare against more complex models. It helps us understand the mean of the response variable when no predictors are included.</p>"),
+        HTML("<h1 style='font-weight: bold'>Step 1: Initial Model (Null Model)</h1>"),
         verbatimTextOutput("modelStep1"),
         verbatimTextOutput("modelTestError"),
         plotOutput("qqPlotNullModel")
@@ -941,21 +913,19 @@ server <- function(input, output) {
      
     } else if (step == "step2") {
       tagList(
-        HTML("<p>Step 2: Correlated Variables Model</p>
-           <p>In this step, we consider a linear model that includes variables which are highly correlated with 'zscore': 'c_breastf', 'c_age', and 'm_height'. This model helps us understand the combined influence of these variables on 'zscore'.</p>"),
+        HTML("<h1 style='font-weight: bold'>Step 2: Correlated Variables Model</h1>"),
         verbatimTextOutput("modelStep2"),
         plotOutput("residualsPlotStep2", width = "100%", height = "600px") 
       )
     } else if (step == "step3") {
       tagList(
-        HTML("<p>Step 3: Full Model</p>
-           <p>In this step, we consider a full linear model that includes all available variables. This model helps us understand the combined influence of all variables on 'zscore' and to assess the overall fit of the model.</p>"),
+        HTML("<h1 style='font-weight: bold'>Step 3: Complete Model</h1>"),
         verbatimTextOutput("modelStep3"),
         plotOutput("residualsPlotStep3", width = "100%", height = "600px")
       )
     }else if (step == "step4") {
       tagList(
-        HTML("<h1 style='font-weight: bold'>Step 4: Final Linear Model<h1 style='font-weight: bold'>
+        HTML("<h1 style='font-weight: bold'>Step 4: Final Linear Model</h1'>
              <h3>After testing the saturated model, the following improvements have been tried:</h3>
              <h3><ul>
                     <li>Removing the less significant predictors <i>c_breastf</i>, <i>m_work</i> and <i>district</i></li>
@@ -973,8 +943,7 @@ server <- function(input, output) {
       
       } else if (step == "step5") {
       tagList(
-        HTML("<h1 style='font-weight: bold'>Step 5: Polynomial Regression Model<h1 style='font-weight: bold'>
-             <h3>At this point, polynomials of degree 2 have been introduced in the best model found so far.</h3>"),
+        HTML("<h1 style='font-weight: bold'>Step 5: Polynomial Regression Model</h1>"),
         verbatimTextOutput("modelStep5"),
         plotOutput("residualsPlotStep5", width = "100%", height = "600px"),
         HTML("<h1 style='font-weight: bold'>Improving the Polynomial Regression Model<h1 style='font-weight: bold'>
@@ -989,8 +958,8 @@ server <- function(input, output) {
     
       } else if (step == "step6") {
       tagList(
-        HTML("<h1 style='font-weight: bold'>Step 6: Ridge Regression Model and Lasso Regression Model<h1 style='font-weight: bold'>
-             <h3>At this point, ridge regression and lasso regression have been introduced in the best model found so far.</h3>"),
+        HTML("<h1 style='font-weight: bold'>Step 6: Ridge and Lasso Regression Model</h1>
+             <h3>At this point, Ridge and LASSO have been applied to the Polynomial Regression Model.</h3>"),
         verbatimTextOutput("modelStep6"),
         plotOutput("residualsPlotStep6", width = "100%", height = "600px"),
         verbatimTextOutput("test_error")
@@ -1002,9 +971,33 @@ server <- function(input, output) {
     } else if (step == "step7") {
       
         tagList(
-        HTML("<p>GAM: To represent the best Generalized Additive Model (GAM), we'll take the gam_most_significant model which uses the following variables: child's gender, duration of breastfeeding, child's age, mother's age at birth, mother's height, and mother's BMI, as well as mother's education and the region of residence. , this seems to have the best performance based on the analysis. We'll include the model fitting, the calculation of test errors, and the plotting of residuals. <p>"),
+        HTML("<h1 style='font-weight: bold'>Step 7: GAM Model</h1>
+             <h3>Previous attempts:
+             <ul>
+                  <li>Natural Cubic Splines:</li>
+                      <ul>
+                            <li>Only predictors mostly correlated with the reponse</li>
+                            <li>All predictors</li>
+                            <li>Only most significant predictors</li>
+                            <li>With interaction between <i>c_breastf</i> and <i>c_age</i></li>
+                            <li>Step AIC</li>
+                            <li>With the categorical version of <i>c_breastf</i></li>
+                      </ul>
+                  <li>GAM:</li>
+                      <ul>
+                            <li>Only predictors mostly correlated with the reponse</li>
+                            <li>All predictors</li>
+                            <li>Only most significant predictors</li>
+                            <li>With interaction between <i>c_breastf</i> and <i>c_age</i></li>
+                            <li>With interaction between <i>c_breastf</i> and <i>c_age</i></li>
+                            <li>Removed splines with estimated df close to 1</li>
+                            <li>ANOVA test to compare the different models</li>
+                      </ul>
+             </ul>
+             In the end, the best solution that has been found is the following one:
+             </h3>"),
         verbatimTextOutput("gamModelSummary"),
-        textOutput("gamModelDiagnostics"),
+        verbatimTextOutput("gamModelDiagnostics"),
         plotOutput("gamDiagnosticPlots", height = "800px"),
         plotOutput("gamActualVsPredicted")
       )
@@ -1018,7 +1011,7 @@ server <- function(input, output) {
     
     par(mfrow = c(2, 2))
     plot(mars_full, residuals = TRUE, pch = 20, cex = 2)
-    mtext("MARS full", side = 3, line = -2, outer = TRUE)
+    mtext("MARS", side = 3, line = -2, outer = TRUE)
     
   })
   
@@ -1073,25 +1066,48 @@ server <- function(input, output) {
     
     if (model == "dt") {
       tagList(
-        HTML("<p>Decision Tree Model</p>"),
+        HTML("<h1 style='font-weight:bold'>Decision Tree Model</h1>"),
         plotOutput("decisiontreeplot",height = "600px"),
         verbatimTextOutput("modelDT")
       )
     } else if (model == "rf") {
       tagList(
-        HTML("<p>Random Forest Model</p>"),
+        HTML("<h1 style='font-weight:bold'>Random Forest Model</h1>"),
         verbatimTextOutput("modelRF"),
         verbatimTextOutput("modelRFimportance")
         
       )
     } else if (model == "mars") {
       tagList(
-        HTML("<p>MARS Model</p>"),
+        HTML("<h1 style='font-weight:bold'>MARS Model</h1>"),
         plotOutput("marsplot",height = "1200px"),
         verbatimTextOutput("modelMARS")
       )
     }
   })
+  
+  # Render the table
+  output$conclusionsTable <- DT::renderDT({
+    # Create the data frame with model information
+    model_data <- data.frame(
+      Model = c("Linear Regression", "Polynomial Regression", "Ridge", "LASSO", "GAM", "MARS", "Random Forest"),
+      Features = c("All predictors except m_work and district, with interaction between c_breastf and c_age",
+                   "Degree 2, all predictors except m_agebirth, interaction between c_breastf and c_age, categorical version of c_breastf",
+                   "Same model as the Polynomial Regression",
+                   "Same model as the Polynomial Regression",
+                   "All predictors except the least significant ones",
+                   "Automatically selects predictors",
+                   "All predictors, 100 trees"),
+      MSE = c(15443.93, 15360.39, 15662.54, 15356.10, 15186.43, 15080.36, 15125.92),
+      RMSE = c(124.27, 123.94, 125.15, 123.92, 123.23, 122.80, 122.99),
+      MAE = c(90.28, 90.34, 91.29, 90.17, 89.92, 89.64, 90.99),
+      AIC = c(46758, 46699, NA, NA, 46693, NA, NA),
+      BIC = c(46882, 46848, NA, NA, 46860, NA, NA)
+    )
+    
+    # Return the data frame
+    datatable(model_data, options = list(pageLength = 10, scrollX = TRUE, dom = 'Brti', info = ''))
+  }, rownames = FALSE)
   
 }
 
