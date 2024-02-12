@@ -26,3 +26,6 @@ SHINYAPP
 6) Linear and GAM Models Step 8 --> GAMs  [ PRANAY ]
 7) Other models (find a better name!!!) --> -MARS, trees , random forest   [ LUCA ]
 8) Conclusion [ ANNALISA ]
+
+
+# check number of occurences for NA district estimations saturated model!!!!!!!!!!!!!!!!!!!
