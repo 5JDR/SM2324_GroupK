@@ -975,7 +975,7 @@ Here the interaction term is not significant, AIC and BIC are higher but the tes
 Let's now test the categorical version of c_breastf.
 
 ```{r gam_c_breastf_categorical}
-gam_c_breastf_cat <- gam(zscore ~ c_gender + c_breastf + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + region, data = train_data_cat)
+gam_c_breastf_cat <- gam(zscore ~ c_gender + c_breastf + s(c_age) + s(m_agebirth) + s(m_height) + s(m_bmi) + m_education + m_work + region + district, data = train_data_cat)
 summary(gam_c_breastf_cat)
 
 # Test error
@@ -997,7 +997,7 @@ Here the model is pretty much the same as the one with the continuous version of
 Since in every gam the m_height and m_bmi predictors have low edf for the significance of smooth terms, we can try to make them linear.
 
 ```{r gam_linear_height_bmi}
-gam_linear_height_bmi <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + m_height + m_bmi + m_education + region, data = train_data)
+gam_linear_height_bmi <- gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + m_height + m_bmi + m_education + m_work + region + district, data = train_data)
 summary(gam_linear_height_bmi)
 
 # Test error
@@ -1028,7 +1028,7 @@ par(mfrow = c(1, 1))
 Let's perform an ANOVA test.
 
 ```{r gam_linear_height_bmi_anova}
-anova(gam_null, gam_most_significant, gam_linear_height_bmi, test = "F")
+anova(gam_null, gam_full, gam_linear_height_bmi, test = "F")
 ```
 
 The linearization of predictors does not result in a statistically significant change in deviance, so we will keep the GAM without the least significant predictors as the best GAM.
