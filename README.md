@@ -29,3 +29,5 @@ SHINYAPP
 
 
 # check number of occurences for NA district estimations saturated model!!!!!!!!!!!!!!!!!!!
+
+# check if it's needed to write something in each page
