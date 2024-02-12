@@ -8,6 +8,12 @@ library(DT)
 library(reshape2)
 library(haven)
 library(shinydashboard)
+library(earth)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(glmnet)
+library(mgcv)
 
 # for melt function
 
@@ -143,7 +149,7 @@ ui <- dashboardPage(
                                           "Not working" = "0",
                                           "Working" = "1"),
                            selected = "both"),
-              plotlyOutput("mworkAnalysis", width = "100%", height = "800px"),
+              plotlyOutput("mworkAnalysis", width = "100%", height = "800px")
       ),
       
       
@@ -156,41 +162,24 @@ ui <- dashboardPage(
                           choices = list("Step 1: Initial Model" = "step1",
                                          "Step 2: High-correlation variables" = "step2",
                                          "Step 3: Saturated Model" = "step3",
-                                         "Step 4: Final Linear Model" = "step4")),
+                                         "Step 4: Final Linear Model" = "step4",
+                                         "Step 5: Polynomial Regression Model" = "step5",
+                                         "Step 6: Ridge and Regression Models" = "step6",
+                                         "Step 7: GAM model" = "step7")
+                                        ),
+                                         
+              
               
               uiOutput("linearModelOutput")
               
       ),
-
-
-      tabItem(tabName = "Conclusions",
-              HTML("<p style='font-size:16px; color: #333333;'>The best <b>Linear 
-                   Regression model</b> found is the one that uses all predictors 
-                   except m_work and district, and considers interaction between 
-                   c_breastf (the categorical version of it) and c_age:<br><b>MSE:
-                   </b> 15443.93, <b>RMSE:</b> 124.27, <b>MAE:</b> 90.28<br><b>AIC:
-                   </b> 46758, <b>BIC:</b> 46882.<br>The best <b>Polynomial 
-                   Regression model</b> found with step AIC, it’s the one that 
-                   has degree 2, uses all predictors except m_agebirth, doesn’t 
-                   consider the square of m_bmi and considers interaction between 
-                   c_breastf and c_age and uses the categorical version of 
-                   c_breastf:<br><b>MSE:</b> 15337.69, <b>RMSE:</b> 123.84, 
-                   <b>MAE:</b> 90.21<br><b>AIC:</b> 46696, <b>BIC:</b> 46833.<br>Ridge 
-                   and LASSO regression didn’t give any interesting results.<br>
-                   The best <b>Spline model</b> found is the one found with step 
-                   AIC, it’s the one that uses all predictors except m_work and 
-                   uses the categorical version of c_breastf:<br><b>MSE:</b> 
-                   15345.08, <b>RMSE:</b> 123.87, <b>MAE:</b> 90.78<br><b>AIC:</b> 
-                   46703, <b>BIC:</b> 46822.<br>The best <b>GAM model</b> found 
-                   is the one that uses all predictors except the least significant 
-                   ones:<br><b>MSE:</b> 15186.43, <b>RMSE:</b> 123.23, <b>MAE:</b> 
-                   89.92<br><b>AIC:</b> 46693, <b>BIC:</b> 46860.<br><b>MARS</b> 
-                   automatically selects which predictors to maintain, the best 
-                   MARS model found:<br><b>MSE:</b> 15080.36, <b>RMSE:</b> 122.80, 
-                   <b>MAE:</b> 89.64.<br>The best <b>Random Forest model</b> found 
-                   is the one that uses all predictors, and 1000 trees:<br><b>MSE:</b> 
-                   15125.92, <b>RMSE:</b> 122.99, <b>MAE:</b> 90.99.<br>In the end, 
-                   MARS and Random Forests are the best models found for this data.</p>"))
+      tabItem(tabName="othermodels",
+              selectInput("modelSelect", "Select Model:",
+                          choices = list("Decision Tree" = "dt",
+                                         "Random Forest" = "rf",
+                                         "MARS" = "mars")),
+              uiOutput("othermodelsOutput")
+      )
       
       
       
@@ -708,6 +697,233 @@ server <- function(input, output) {
   })
   
   ################################################################################
+  #########################################################################################
+  
+  #factorize c_breastf
+  train_data_cat <- train_data
+  test_data_cat <- test_data
+  train_data_cat$c_breastf <- ifelse(train_data$c_breastf == 0 | train_data$c_breastf == 1 | train_data$c_breastf == 2, 0, 1)
+  test_data_cat$c_breastf <- ifelse(test_data$c_breastf == 0 | test_data$c_breastf == 1 | test_data$c_breastf == 2, 0, 1)
+  train_data_cat$c_breastf <- as.factor(train_data_cat$c_breastf)
+  test_data_cat$c_breastf <- as.factor(test_data_cat$c_breastf)
+  
+  output$modelStep4 <- renderPrint({
+    # Fit
+    lm_final <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+    
+    # Display the summary of the full model
+    print(summary(lm_final))
+    
+    # Predict on test data and calculate errors
+    predicted_final <- predict(lm_final, newdata = test_data_cat)
+    MSE_final <- mean((predicted_final - test_data_cat$zscore)^2)
+    RMSE_final <- sqrt(MSE_final)
+    MAE_final <- mean(abs(predicted_final - test_data_cat$zscore))
+    
+    # Calculate AIC and BIC
+    AIC_value_final <- AIC(lm_final)
+    BIC_value_final <- BIC(lm_final)
+    
+    # Display test error metrics
+    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("MSE: ", MSE_final, "\nRMSE: ", RMSE_final, "\nMAE: ", MAE_final, "\n")
+    cat("\nModel Criteria (Full Model):\n")
+    cat("AIC: ", AIC_value_final, "\nBIC: ", BIC_value_final, "\n")
+    
+  })
+  
+  output$residualsPlotStep4 <- renderPlot({
+    # Fit
+    lm_final <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+    
+    # Set up the plot area for a 2x2 grid of plots
+    par(mfrow = c(2, 2))
+    
+    # Generate diagnostic plots
+    plot(lm_final)
+    
+    # Add a main title for all plots
+    mtext("Final Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
+    
+    # Reset plot settings to default (optional, but good practice)
+    par(mfrow = c(1, 1))
+  })
+  
+  #########################################################################################
+  output$modelStep5 <- renderPrint({
+    # Fit
+    lm_poly <- lm(zscore ~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = train_data_cat)
+    
+    # Display the summary of the full model
+    print(summary(lm_poly))
+    
+    # Predict on test data and calculate errors
+    predicted_poly <- predict(lm_poly, newdata = test_data_cat)
+    MSE_poly <- mean((predicted_poly - test_data_cat$zscore)^2)
+    RMSE_poly <- sqrt(MSE_poly)
+    MAE_poly <- mean(abs(predicted_poly - test_data_cat$zscore))
+    
+    # Calculate AIC and BIC
+    AIC_value_poly <- AIC(lm_poly)
+    BIC_value_poly <- BIC(lm_poly)
+    
+    # Display test error metrics
+    cat("\nTest Set Error Metrics (Full Model):\n")
+    cat("MSE: ", MSE_poly, "\nRMSE: ", RMSE_poly, "\nMAE: ", MAE_poly, "\n")
+    cat("\nModel Criteria (Full Model):\n")
+    cat("AIC: ", AIC_value_poly, "\nBIC: ", BIC_value_poly, "\n")
+    
+  })
+  
+  output$residualsPlotStep5 <- renderPlot({
+    # Fit
+    lm_poly <- lm(zscore ~ . + c_age * c_breastf - m_work - district, data = train_data_cat)
+    
+    # Set up the plot area for a 2x2 grid of plots
+    par(mfrow = c(2, 2))
+    
+    # Generate diagnostic plots
+    plot(lm_poly)
+    
+    # Add a main title for all plots
+    mtext("Final Model Residuals Analysis", side = 3, line = -2, outer = TRUE)
+    
+    # Reset plot settings to default (optional, but good practice)
+    par(mfrow = c(1, 1))
+  })
+  
+  
+  output$residualsPlotStep6 <- renderPlot({
+    X <- model.matrix(zscore~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = train_data_cat)
+    X_test <- model.matrix(zscore~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = test_data_cat)
+    
+    # Fit ridge model
+    ridge_model <- cv.glmnet(X, train_data_cat$zscore, alpha = 0)
+    lasso_model <- cv.glmnet(X, train_data_cat$zscore, alpha = 1)
+    
+    par(mfrow = c(1, 2))
+    plot(ridge_model)
+    plot(lasso_model)
+   
+  })
+  
+  output$test_error <- renderPrint({
+    X <- model.matrix(zscore~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = train_data_cat)
+    X_test <- model.matrix(zscore~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = test_data_cat)
+    
+    # Fit ridge model
+    ridge_model <- cv.glmnet(X, train_data_cat$zscore, alpha = 0)
+    lasso_model <- cv.glmnet(X, train_data_cat$zscore, alpha = 1)
+    
+    # Predict on test data
+    predicted_ridge <- predict(ridge_model, s = ridge_model$lambda.min, newx = X_test)
+    predicted_lasso <- predict(lasso_model, s = lasso_model$lambda.min, newx = X_test)
+    
+    # Calculate errors
+    MSE_ridge <- mean((predicted_ridge - test_data_cat$zscore)^2)
+    RMSE_ridge <- sqrt(MSE_ridge)
+    MAE_ridge <- mean(abs(predicted_ridge - test_data_cat$zscore))
+    
+    MSE_lasso <- mean((predicted_lasso - test_data_cat$zscore)^2)
+    RMSE_lasso <- sqrt(MSE_lasso)
+    MAE_lasso <- mean(abs(predicted_lasso - test_data_cat$zscore))
+    
+    # Display test error metrics
+    cat("\nTest Set Error Metrics (Ridge Model):\n")
+    cat("MSE: ", MSE_ridge, "\nRMSE: ", RMSE_ridge, "\nMAE: ", MAE_ridge, "\n")
+    
+    cat("\nTest Set Error Metrics (Lasso Model):\n")
+    cat("MSE: ", MSE_lasso, "\nRMSE: ", RMSE_lasso, "\nMAE: ", MAE_lasso, "\n")
+    
+    
+  })
+  
+  #########################################################################
+  
+  # Fit the GAM model
+  gam_most_significant <- reactive({
+    gam(zscore ~ c_gender + s(c_breastf) + s(c_age) + s(m_agebirth) + s(m_height) + 
+          s(m_bmi) + m_education + region, data = train_data)
+  })
+  
+  # Reactive for generating predictions and handling potential issues
+  gam_predictions <- reactive({
+    if (is.null(gam_most_significant())) {
+      return(NULL)  # Early exit if the model hasn't been successfully created
+    }
+    
+    tryCatch({
+      predict(gam_most_significant(), newdata = test_data)
+    }, error = function(e) {
+      return(NULL)  # Handle prediction errors by returning NULL
+    })
+  })
+  
+  # Calculate test errors and criteria
+  gam_test_results <- reactive({
+    model <- gam_most_significant()
+    predicted <- predict(model, newdata = test_data)
+    actual <- test_data$zscore
+    
+    MSE <- mean((predicted - actual)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - actual))
+    AIC_value <- AIC(model)
+    BIC_value <- BIC(model)
+    
+    list(MSE = MSE, RMSE = RMSE, MAE = MAE, AIC = AIC_value, BIC = BIC_value)
+  })
+  
+  # Output the summary of GAM model
+  output$gamModelSummary <- renderPrint({
+    summary(gam_most_significant())
+  })
+  
+  # Output the model diagnostics
+  output$gamModelDiagnostics <- renderText({
+    diag <- gam_test_results()
+    paste("MSE:", diag$MSE, "RMSE:", diag$RMSE, "MAE:", diag$MAE, "AIC:", diag$AIC, "BIC:", diag$BIC)
+  })
+  
+  # Render diagnostic plots for the GAM model
+  output$gamDiagnosticPlots <- renderPlot({
+    req(gam_most_significant()) # Ensure the gam model is available
+    
+    par(mfrow = c(2, 2)) # Set up the plotting area to display 4 plots (2x2 grid)
+    plot(gam_most_significant(), pch = 20, cex = 0.5, xlab = "Theoretical quantiles of Z-score", ylab = "Obseverved quantiles of Z-score") # Residuals vs Fitted plot 
+    plot(gam_most_significant(), resid = TRUE, xlab = "Fitted values of Z-score", ylab = "Residuals of Z-score") #
+    plot(gam_most_significant(), se = TRUE, xlab = "Residuals of Z-score", ylab = "Frequency") # 
+    plot(gam_most_significant(), scheme = 1, shade = TRUE, pch = 20, cex = 0.5, xlab = "Fitted Values of Z-score", ylab = "Observed Z-score") # 
+    gam.check(gam_most_significant()) # Additional checks for the GAM model
+    
+    # Reset the graphical parameters
+    par(mfrow = c(1, 1))
+  }, height = 800)
+  
+  # Render actual vs. predicted plot for GAM model
+  output$gamActualVsPredicted <- renderPlot({
+    req(!is.null(gam_predictions()))  # Ensure predictions are not NULL
+    
+    # Create comparison data frame
+    comparison_data <- data.frame(
+      Actual = test_data$zscore,
+      Predicted = gam_predictions()
+    )
+    
+    # Check for data integrity before plotting
+    if (nrow(comparison_data) > 0 && !anyNA(comparison_data$Predicted)) {
+      ggplot(comparison_data, aes(x = Actual, y = Predicted)) +
+        geom_point() +
+        geom_abline(intercept = 0, slope = 1, color = "red") +
+        labs(title = "Actual vs. Predicted for GAM Model",
+             x = "Actual zscore", y = "Predicted zscore")
+    } else {
+      plot.new()
+      text(0.5, 0.5, "Unable to generate plot due to data issues")
+    }
+  })
+  
+  ################################################################################ 
    
   
   output$linearModelOutput <- renderUI({
@@ -739,8 +955,140 @@ server <- function(input, output) {
       )
     }else if (step == "step4") {
       tagList(
-        HTML("<p>Step 4: Explanation of final model...</p>"),
-        verbatimTextOutput("modelStep4")
+        HTML("<h1 style='font-weight: bold'>Step 4: Final Linear Model<h1 style='font-weight: bold'>
+             <h3>After testing the saturated model, the following improvements have been tried:</h3>
+             <h3><ul>
+                    <li>Removing the less significant predictors <i>c_breastf</i>, <i>m_work</i> and <i>district</i></li>
+                    <li>Introducing interaction between highly correlated covariates (<i>c_age</i> and <i>c_breastf</i>)</li>
+                    <li>Log-transofming the skewed covariates</li>
+                    <li>Step AIC</li>
+                    <li>Transforming <i>c_breastf</i> from continuous to binary (0 if <i>c_breastf</i> < 2; 1 otherwise)</li>
+                    <li>Analysis of multicollinearity</li>
+                 <ul></h3>
+             <h3>In the end, the best solution that has found considers all predictors except <i>m_work</i> and <i>district</i>, and considers interaction between the categorical version of <i>c_breastf</i> and <i>c_age</i></h3>
+             <h3>Log-transformations, step AIC and the analysis of multicollinearity didn't lead to any improvement.</h3>"),
+        verbatimTextOutput("modelStep4"),
+        plotOutput("residualsPlotStep4", width = "100%", height = "600px")
+      )
+      
+      } else if (step == "step5") {
+      tagList(
+        HTML("<h1 style='font-weight: bold'>Step 5: Polynomial Regression Model<h1 style='font-weight: bold'>
+             <h3>At this point, polynomials of degree 2 have been introduced in the best model found so far.</h3>"),
+        verbatimTextOutput("modelStep5"),
+        plotOutput("residualsPlotStep5", width = "100%", height = "600px"),
+        HTML("<h1 style='font-weight: bold'>Improving the Polynomial Regression Model<h1 style='font-weight: bold'>
+          <h3>The improvements that have been tried are:</h3>
+          <h3><ul>
+          <li>Adding polynomials of degree 3</li>
+          <li>Step AIC</li>
+          <li>Analysis of multicollinearity</li>
+          </ul></h3>
+          <h3>None of these improvements led to a better model.</h3>")
+      )
+    
+      } else if (step == "step6") {
+      tagList(
+        HTML("<h1 style='font-weight: bold'>Step 6: Ridge Regression Model and Lasso Regression Model<h1 style='font-weight: bold'>
+             <h3>At this point, ridge regression and lasso regression have been introduced in the best model found so far.</h3>"),
+        verbatimTextOutput("modelStep6"),
+        plotOutput("residualsPlotStep6", width = "100%", height = "600px"),
+        verbatimTextOutput("test_error")
+      
+      )
+        
+        
+      
+    } else if (step == "step7") {
+      
+        tagList(
+        HTML("<p>GAM: To represent the best Generalized Additive Model (GAM), we'll take the gam_most_significant model which uses the following variables: child's gender, duration of breastfeeding, child's age, mother's age at birth, mother's height, and mother's BMI, as well as mother's education and the region of residence. , this seems to have the best performance based on the analysis. We'll include the model fitting, the calculation of test errors, and the plotting of residuals. <p>"),
+        verbatimTextOutput("gamModelSummary"),
+        textOutput("gamModelDiagnostics"),
+        plotOutput("gamDiagnosticPlots", height = "800px"),
+        plotOutput("gamActualVsPredicted")
+      )
+    }
+  })
+  
+  ######################################################
+  output$marsplot <- renderPlot({
+    mars_full <- earth(zscore ~ ., data = train_data)
+    predicted <- predict(mars_full, newdata = test_data)
+    
+    par(mfrow = c(2, 2))
+    plot(mars_full, residuals = TRUE, pch = 20, cex = 2)
+    mtext("MARS full", side = 3, line = -2, outer = TRUE)
+    
+  })
+  
+  output$modelMARS <- renderPrint({
+    mars_full <- earth(zscore ~ ., data = train_data)
+    predicted <- predict(mars_full, newdata = test_data)
+    MSE <- mean((predicted - test_data$zscore)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - test_data$zscore))
+    
+    paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+  })
+  ########################################################
+  output$decisiontreeplot <- renderPlot({
+    tree_full <- rpart(zscore ~ ., data = train_data)
+    rpart.plot(tree_full)
+    
+  })
+  
+  output$modelDT <- renderPrint({
+    tree_full <- rpart(zscore ~ ., data = train_data)
+    predicted <- predict(tree_full, newdata = test_data)
+    MSE <- mean((predicted - test_data$zscore)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - test_data$zscore))
+    
+    paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+  })
+  ##########################################################
+  output$modelRF <- renderPrint({
+    rf_full <- random_forest_full <- randomForest(zscore ~ . - district, data = train_data, ntree = 100, importance = TRUE)
+    predicted <- predict(rf_full, newdata = test_data)
+    MSE <- mean((predicted - test_data$zscore)^2)
+    RMSE <- sqrt(MSE)
+    MAE <- mean(abs(predicted - test_data$zscore))
+    
+    paste("MSE: ", MSE, ", RMSE: ", RMSE, ", MAE: ", MAE)
+    
+    
+  })
+  
+  output$modelRFimportance <- renderPrint({
+    rf_full <- random_forest_full <- randomForest(zscore ~ . - district, data = train_data, ntree = 100, importance = TRUE)
+    predicted <- predict(rf_full, newdata = test_data)
+    importance(random_forest_full)
+  })
+  
+  
+  
+  output$othermodelsOutput <- renderUI({
+    model <- input$modelSelect
+    
+    if (model == "dt") {
+      tagList(
+        HTML("<p>Decision Tree Model</p>"),
+        plotOutput("decisiontreeplot",height = "600px"),
+        verbatimTextOutput("modelDT")
+      )
+    } else if (model == "rf") {
+      tagList(
+        HTML("<p>Random Forest Model</p>"),
+        verbatimTextOutput("modelRF"),
+        verbatimTextOutput("modelRFimportance")
+        
+      )
+    } else if (model == "mars") {
+      tagList(
+        HTML("<p>MARS Model</p>"),
+        plotOutput("marsplot",height = "1200px"),
+        verbatimTextOutput("modelMARS")
       )
     }
   })
