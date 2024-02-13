@@ -285,6 +285,19 @@ NOTE: THIS PLOT WILL BE VERY DIFFERENT WITH R-SHINY, BECAUSE THE PLOT IS INTERAC
 
 FOR REGION AND DISTRICTS CHECK CHOROPLETH MAPS FOR SHINY
 
+Check district repetitions of each district
+```{r district_table}
+# Print each value of district (sorted) and the number of repetitions
+unique_districts <- unique(train_data$district)
+unique_districts <- sort(unique_districts)
+for (i in 1:length(unique_districts)){
+  print(paste(unique_districts[i], ":", sum(train_data$district == unique_districts[i])))
+}
+
+```
+
+```{r district}
+```
 
 
 

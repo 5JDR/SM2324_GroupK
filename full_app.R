@@ -48,7 +48,7 @@ ui <- dashboardPage(
     tabItems(
       # Data Analysis Tabs
       tabItem(tabName = "dataOverview", 
-              HTML("<p>This dataset provides a comprehensive overview of 
+              HTML("<h3>This dataset provides a comprehensive overview of 
                malnutrition among children aged 0-5 in Zambia, based on a survey
                conducted in 1992. It focuses on the nutritional condition measured 
                by the Z-score, which compares a child's anthropometric status to 
@@ -74,7 +74,7 @@ ui <- dashboardPage(
              </ul>
              <p>This dataset serves as a tool for understanding the scale
                     and specifics of child malnutrition in Zambia, providing 
-                    valuable insights.</p>")),
+                    valuable insights.</h3>")),
       tabItem(tabName = "zscoreHist", plotlyOutput("zscoreHist",width = "100%", height = "800px")),
       tabItem(tabName = "correlationMatrix", plotlyOutput("correlationMatrix",height = "800px")),
       tabItem(tabName = "genderAnalysis",
@@ -148,7 +148,7 @@ ui <- dashboardPage(
               selectInput("modelStep", "Select Model Building Step:",
                           choices = list("Step 1: Initial Model" = "step1",
                                          "Step 2: High-correlation variables" = "step2",
-                                         "Step 3: Saturated Model" = "step3",
+                                         "Step 3: Complete Model" = "step3",
                                          "Step 4: Final Linear Model" = "step4",
                                          "Step 5: Polynomial Regression Model" = "step5",
                                          "Step 6: Ridge and LASSO Regression Models" = "step6",
@@ -225,11 +225,8 @@ server <- function(input, output) {
   train_data$district <- as.factor(train_data$district)
   test_data$district <- as.factor(test_data$district)
   
- 
-  
   # Data Overview
  
-  
   # Interactive Histogram of zscore
   output$zscoreHist <- renderPlotly({
     
@@ -782,8 +779,8 @@ server <- function(input, output) {
   })
   
   output$test_error <- renderPrint({
-    X <- model.matrix(zscore~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = train_data_cat)
-    X_test <- model.matrix(zscore~ . + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = test_data_cat)
+    X <- model.matrix(zscore~ . -1 + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = train_data_cat)
+    X_test <- model.matrix(zscore~ . -1 + I(c_age^2)+ I(m_agebirth^2) + I(m_height^2) + I(m_bmi^2) + c_age*c_breastf - m_work - district, data = test_data_cat)
     
     # Fit ridge model
     ridge_model <- cv.glmnet(X, train_data_cat$zscore, alpha = 0)
@@ -801,6 +798,9 @@ server <- function(input, output) {
     MSE_lasso <- mean((predicted_lasso - test_data_cat$zscore)^2)
     RMSE_lasso <- sqrt(MSE_lasso)
     MAE_lasso <- mean(abs(predicted_lasso - test_data_cat$zscore))
+    
+    print("LASSO coefficients")
+    print(coef(glmnet(X, train_data_cat$zscore, alpha = 1, lambda = lasso_model$lambda.min)))
     
     # Display test error metrics
     cat("\nTest Set Error Metrics (Ridge Model):\n")
